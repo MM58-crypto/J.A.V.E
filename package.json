@@ -1,0 +1,15 @@
+{
+  "name": "jave",
+  "version": "1.0.0",
+  "description": "Automating job applications via email ",
+  "license": "ISC",
+  "author": "MM58-crypto",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
