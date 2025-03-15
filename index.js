@@ -34,7 +34,7 @@ rl.question(`Please enter your email address: `, (ans1) => {
               secure: true,
               auth: {
                 user: usr_email,
-                pass: "tmmp wxom ixml yiiu"
+                pass: ""
               },
             });
 // get addresses from usr input
