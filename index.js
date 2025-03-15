@@ -2,28 +2,49 @@ const http = require('http')
 const fs = require('fs')
 const url = require('url')
 const nodemailer = require('nodemailer');
+const readline = require('node:readline');
 
 // usr should supply the list file
-const emails_file = 'emails2.txt';
-const emails = fs.readFileSync(emails_file, 'utf8').split(',').map(email=> email.trim().replace(/['"]+/g, '')).filter(email => email);
-// smtp setup
-const transporter =
-      nodemailer.createTransport({
-          host: "smtp.gmail.com",
-          port: 465,
-          secure: true,
-          auth: {
-              user: "mohammed.magdi999@gmail.com",
-              pass: "tmmp wxom ixml yiiu"
-          },
-      });
+//let emails_file = '';
+//const emails_file = 'uae_emails.txt';
+//const emails = fs.readFileSync(emails_file, 'utf8').split(',').map(email=> email.trim().replace(/['"]+/g, '')).filter(email => email);
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+});
+
+let usr_email, emails_file;
+//let email_body; // usr passes a txt file with body
+
+rl.question(`Please enter your email address: `, (ans1) => {
+    usr_email = ans1;
+    console.log('Your email ' +  usr_email);
+
+  rl.question('Enter the file name that contains list of emails: ', (ans2) => {
+        emails_file = ans2;
+        const emails = fs.readFileSync(emails_file, 'utf8').split(',').map(email=> email.trim().replace(/['"]+/g, '')).filter(email => email);
+        console.log('email file: ' + emails_file);
+
+      // smtp setup
+      const transporter =
+            nodemailer.createTransport({
+              host: "smtp.gmail.com",
+              port: 465,
+              secure: true,
+              auth: {
+                user: usr_email,
+                pass: "tmmp wxom ixml yiiu"
+              },
+            });
 // get addresses from usr input
-//body text can be a text file inputted by the usr
-async function emailIt() {
+// body text can be a text file inputted by the usr
+
+async function emailIt(rec_email) {
     const info = await transporter.sendMail({
-        from: '"Mohd Magdi" <mohammed.magdi999@gmail.com>',
-        to: 'hr@jatco.com.sa', // loop through an email list & send mail for each address
-        bcc: emails,
+        from: usr_email,
+        to: rec_email, // loop through an email list & send mail for each address
+        //bcc: emails,
         subject: "Job opportunity inquiry - Software developer",
         text: `Dear Sir/Ma'am,
 
@@ -49,7 +70,13 @@ Best Regards,
 
     console.log("Email sent successfully: ", info.messageId);
 }
+for (let i=0; i < emails.length; i++) {
+   emailIt(emails[i]).catch(console.error);
+}
 
-emailIt().catch(console.error);
+rl.close();
+    });
+});
 
-//server.listen(port, () => console.log('Server listening on port ' + port ));
+
+module.exports = "jave"
