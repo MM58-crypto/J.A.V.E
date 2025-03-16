@@ -44,7 +44,7 @@ let transporter = nodemailer.createTransport({
 Modify the email body in index.js to suit your job application. You can write your custom message and include placeholders if needed.
 You must also modify the attachments data structure (filename and path) to include your resume.
 ```javascript
-
+const info = await transporter.sendMail({
         from: usr_email,
         to: rec_email,
         subject: "Job opportunity inquiry - Software developer",
