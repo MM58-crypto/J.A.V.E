@@ -44,11 +44,11 @@ Email Body: Modify the email body in main.js to suit your job application. You c
 ## Usage
 
 Prepare the Email List: Create a text file with the list of email addresses of the recipients. Each email address should be on a new line in the text file. For example:
-
-employer1@example.com
-employer2@example.com
+```
+employer1@example.com,
+employer2@example.com,
 employer3@example.com
-
+```
 Run the Tool: To use J.A.V.E, open your terminal, navigate to the directory where J.A.V.E is located, and run the following command:
 ```sh
 node main.js
@@ -63,12 +63,11 @@ Let J.A.V.E Do Its Magic: Once you enter the required information, J.A.V.E will 
 ```sh
 $ node main.js
 ```
-(vid)
 
-Sending emails...
-Emails sent successfully!
+![image](https://github.com/user-attachments/assets/be510c86-3970-4c42-833f-3663abe23000)
 
-Dependencies
+
+## Dependencies
 
 - Node.js: Ensure that you have Node.js installed on your machine.
 - Nodemailer: This tool uses Nodemailer to send emails via SMTP.
