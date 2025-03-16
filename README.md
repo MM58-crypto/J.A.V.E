@@ -25,7 +25,7 @@ npm install readline nodemailer figlet
 ```
 ## Configuration
 
-Before using J.A.V.E, you need to modify the main.js file to configure your email provider's SMTP settings and personalize the email body text.
+Before using J.A.V.E, you need to modify the index.js file to configure your email provider's SMTP settings and personalize the email body text.
 
 ### SMTP Settings: 
 Open main.js and find the section where SMTP settings are configured. Modify it according to your email provider (e.g., Gmail, Outlook).
