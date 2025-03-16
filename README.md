@@ -32,12 +32,15 @@ Open index.js and find the section where SMTP settings are configured. Modify it
      
 Example configuration for Gmail:
 ```javascript     
-let transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: 'your-email@gmail.com',
-        pass: 'your-email-password'
-    }
+ const transporter =
+            nodemailer.createTransport({
+              host: "smtp.gmail.com",
+              port: 465,
+              secure: true,
+              auth: {
+                user: your-email@gmail.com,
+                pass: your-app-password
+              },
 });
 ```
 ### Email Body: 
