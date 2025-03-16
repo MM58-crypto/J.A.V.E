@@ -62,8 +62,8 @@ Best Regards,
 
         attachments: [
             {
-                filename: 'Mohd_Magdi_resume_5.1(web).pdf',
-                path: '/home/mmk/mm-resumes/Mohd_Magdi_resume_5.1(web).pdf'
+                filename: '<your-resume>.pdf',
+                path: '/path/to/<your-resume>.pdf'
             }
         ]
     });
