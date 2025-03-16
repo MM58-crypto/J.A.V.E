@@ -27,7 +27,8 @@ npm install readline nodemailer figlet
 
 Before using J.A.V.E, you need to modify the main.js file to configure your email provider's SMTP settings and personalize the email body text.
 
-SMTP Settings: Open main.js and find the section where SMTP settings are configured. Modify it according to your email provider (e.g., Gmail, Outlook).
+### SMTP Settings: 
+Open main.js and find the section where SMTP settings are configured. Modify it according to your email provider (e.g., Gmail, Outlook).
      
 Example configuration for Gmail:
 ```javascript     
@@ -39,7 +40,37 @@ let transporter = nodemailer.createTransport({
     }
 });
 ```
-Email Body: Modify the email body in main.js to suit your job application. You can write your custom message and include placeholders if needed.
+### Email Body: 
+Modify the email body in index.js to suit your job application. You can write your custom message and include placeholders if needed.
+You must also modify the attachments data structure (filename and path) to include your resume.
+```javascript
+
+        from: usr_email,
+        to: rec_email,
+        subject: "Job opportunity inquiry - Software developer",
+        text: `Dear Sir/Ma'am,
+
+I’m writing to express interest in a Software Developer role at your esteemed company. With experience in software development, API testing, and system optimization, I’m eager to contribute to your team.
+
+I’m proficient in Python, Java, C++, JavaScript, and frameworks like Django, Flask, and React, with additional experience in AWS and containerization tools.
+
+I’ve attached my resume and would appreciate the opportunity to discuss how my skills align with your needs. Feel free to contact me to schedule an interview.
+
+Thank you for your consideration
+
+Best Regards,
+
+`,
+
+        attachments: [
+            {
+                filename: '<your_resume>.pdf',
+                path: '/path/to/<your_resume>.pdf'
+            }
+        ]
+    });
+
+```
 
 ## Usage
 
@@ -49,9 +80,10 @@ employer1@example.com,
 employer2@example.com,
 employer3@example.com
 ```
+
 Run the Tool: To use J.A.V.E, open your terminal, navigate to the directory where J.A.V.E is located, and run the following command:
 ```sh
-node main.js
+node index.js
 ```
 Input Required Information:
 - You will be prompted to enter your email address.
