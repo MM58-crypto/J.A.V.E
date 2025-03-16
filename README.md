@@ -16,7 +16,7 @@ The tool uses Nodemailer and SMTP configuration to send emails, making it compat
 
 Clone this repository or download the project to your local machine.
  ```sh
-git clone https://github.com/yourusername/jave.git
+git clone https://github.com/MM58-crypto/jave.git
 cd jave
 ```
 Install dependencies.
