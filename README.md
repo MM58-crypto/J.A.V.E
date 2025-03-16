@@ -33,15 +33,15 @@ Open index.js and find the section where SMTP settings are configured. Modify it
 Example configuration for Gmail:
 ```javascript     
  const transporter =
-            nodemailer.createTransport({
-              host: "smtp.gmail.com",
-              port: 465,
-              secure: true,
-              auth: {
-                user: your-email@gmail.com,
-                pass: your-app-password
-              },
-});
+     nodemailer.createTransport({
+         host: "smtp.gmail.com",
+         port: 465,
+         secure: true,
+         auth: {
+             user: your-email@gmail.com,
+             pass: your-app-password
+         },
+     });
 ```
 ### Email Body: 
 Modify the email body in index.js to suit your job application. You can write your custom message and include placeholders if needed.
