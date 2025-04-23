@@ -4,10 +4,6 @@ const url = require('url')
 const nodemailer = require('nodemailer');
 const readline = require('node:readline');
 
-// usr should supply the list file
-//let emails_file = '';
-//const emails_file = 'uae_emails.txt';
-//const emails = fs.readFileSync(emails_file, 'utf8').split(',').map(email=> email.trim().replace(/['"]+/g, '')).filter(email => email);
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -15,7 +11,6 @@ const rl = readline.createInterface({
 });
 
 let usr_email, emails_file;
-//let email_body; // usr passes a txt file with body
 
 rl.question(`Please enter your email address: `, (ans1) => {
     usr_email = ans1;
@@ -38,7 +33,7 @@ rl.question(`Please enter your email address: `, (ans1) => {
               },
             });
 // get addresses from usr input
-// body text can be a text file inputted by the usr
+// body text can be a text file passed by the usr
 
 async function emailIt(rec_email) {
     const info = await transporter.sendMail({
