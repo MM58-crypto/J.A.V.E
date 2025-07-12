@@ -3,19 +3,21 @@ const fs = require('fs')
 const url = require('url')
 const nodemailer = require('nodemailer');
 const readline = require('node:readline');
-
-// usr should supply the list file
-//let emails_file = '';
-//const emails_file = 'uae_emails.txt';
-//const emails = fs.readFileSync(emails_file, 'utf8').split(',').map(email=> email.trim().replace(/['"]+/g, '')).filter(email => email);
+const figlet = require('figlet');
 
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
-let usr_email, emails_file;
-//let email_body; // usr passes a txt file with body
+figlet('JAVE', function(err, data) {
+  if (err) {
+    console.log('Hmmm, there seems to be an error');
+    console.dir(err);
+    return;
+  }
+  console.log(data);
+  let usr_email, emails_file;
 
 rl.question(`Please enter your email address: `, (ans1) => {
     usr_email = ans1;
@@ -26,6 +28,11 @@ rl.question(`Please enter your email address: `, (ans1) => {
         const emails = fs.readFileSync(emails_file, 'utf8').split(',').map(email=> email.trim().replace(/['"]+/g, '')).filter(email => email);
         console.log('email file: ' + emails_file);
 
+    rl.question('Enter a text file containing the email body: ', (ans3) => {
+        email_body = ans3;
+        const body = fs.readFileSync(email_body, 'utf8');
+
+
       // smtp setup
       const transporter =
             nodemailer.createTransport({
@@ -34,49 +41,41 @@ rl.question(`Please enter your email address: `, (ans1) => {
               secure: true,
               auth: {
                 user: usr_email,
-                pass: ""
+                pass:  "ftrh rjei cqip idql"
               },
             });
-// get addresses from usr input
-// body text can be a text file inputted by the usr
-
+    // email templates ? method 1: display to usr the suggested templates and let him select from the available templates
+    // the usr needs to insert information like desired role, ....
+    // method 2: provide text files that the user can pass as input for email body (idk about this)
+    // maybe i can link an LLM with JAVE to generate templates
 async function emailIt(rec_email) {
     const info = await transporter.sendMail({
         from: usr_email,
-        to: rec_email, // loop through an email list & send mail for each address
-        //bcc: emails,
-        subject: "Job opportunity inquiry - Software developer",
-        text: `Dear Sir/Ma'am,
-
-I’m writing to express interest in a Software Developer role at your esteemed company. With experience in software development, API testing, and system optimization, I’m eager to contribute to your team.
-
-I’m proficient in Python, Java, C++, JavaScript, and frameworks like Django, Flask, and React, with additional experience in AWS and containerization tools.
-
-I’ve attached my resume and would appreciate the opportunity to discuss how my skills align with your needs. Feel free to contact me to schedule an interview.
-
-Thank you for your consideration
-
-Best Regards,
-
-`,
+        to: rec_email,
+        subject: "Job opportunity inquiry - Software Engineer",
+        text: body,
 
         attachments: [
             {
-                filename: 'Mohd_Magdi_resume_5.1(web).pdf',
-                path: '/home/mmk/mm-resumes/Mohd_Magdi_resume_5.1(web).pdf'
+                filename: 'Mohd_Magdi_resume(web).pdf',
+                path: '/home/mmk/mm-resumes/Mohd_Magdi_resume(web).pdf'
             }
         ]
     });
 
     console.log("Email sent successfully: ", info.messageId);
 }
+
 for (let i=0; i < emails.length; i++) {
    emailIt(emails[i]).catch(console.error);
 }
 
 rl.close();
+      });
     });
 });
 
 
-module.exports = "jave"
+});
+
+
