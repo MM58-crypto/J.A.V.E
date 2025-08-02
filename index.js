@@ -32,7 +32,10 @@ rl.question(`Please enter your email address: `, (ans1) => {
         email_body = ans3;
         const body = fs.readFileSync(email_body, 'utf8');
 
+      rl.question('Enter the file path of your resume: ', (ans4) => {
+        let resume_path = ans4;
 
+     
       // smtp setup
       const transporter =
             nodemailer.createTransport({
@@ -41,13 +44,12 @@ rl.question(`Please enter your email address: `, (ans1) => {
               secure: true,
               auth: {
                 user: usr_email,
-                pass:  "ftrh rjei cqip idql"
+                pass: process.env.smtp_pass
               },
             });
     // email templates ? method 1: display to usr the suggested templates and let him select from the available templates
     // the usr needs to insert information like desired role, ....
     // method 2: provide text files that the user can pass as input for email body (idk about this)
-    // maybe i can link an LLM with JAVE to generate templates
 async function emailIt(rec_email) {
     const info = await transporter.sendMail({
         from: usr_email,
@@ -57,8 +59,8 @@ async function emailIt(rec_email) {
 
         attachments: [
             {
-                filename: 'Mohd_Magdi_resume(web).pdf',
-                path: '/home/mmk/mm-resumes/Mohd_Magdi_resume(web).pdf'
+                filename: 'Resume.pdf',
+                path: ans4
             }
         ]
     });
@@ -71,6 +73,7 @@ for (let i=0; i < emails.length; i++) {
 }
 
 rl.close();
+        });
       });
     });
 });
