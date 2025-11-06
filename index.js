@@ -4,6 +4,7 @@ const url = require('url')
 const nodemailer = require('nodemailer');
 const readline = require('node:readline');
 const figlet = require('figlet');
+const schedule = require('node-schedule');
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -18,25 +19,45 @@ figlet('JAVE', function(err, data) {
   }
   console.log(data);
 
+  function sendNow() {
+
+  }
+
+  function scheduleSend() {
+
+  }
+
   let usr_email, emails_file;
 
 
-// tbc ........
-function user_input(prompt) {
-    return new Promise(resolve => {
-      rl.question(prompt, resolve);
-    });
-  }
 
-async function user_details() {
+  console.log("Select one of the options above: ");
+  console.log("1 - Send emails immediately ");
+  console.log("2 - Schedule emails ");
+  console.log("3 - Exit ");
 
-  const email_address = await user_input('Email address: ');
-  const emails_file = await user_input('File name with list of emails ');
-  const body = await user_input('email body');
-  const resume_path = await user_input('Resume path');
+  rl.on('line', (line) => {
+    const opt = line.trim();
+
+    switch (opt) {
+    case '1':
+      ////
+      break;
+
+    case '2':
+      ////
+      break;
+
+    case 'exit':
+      rl.close();
+
+    default:
+      console.log('bleh');
+
+    }
+  });
 
 
-  }
   // inefficient  method , bad code readbility
 rl.question(`Please enter your email address: `, (ans1) => {
     usr_email = ans1;

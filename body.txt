@@ -1,11 +1,13 @@
-Dear Hiring Team,
+Dear Team,
 
-I’m reaching out to apply for a Software Developer role at Elm. With experience developing conversational AI systems, containerizing applications with Docker, and conducting API testing and integration, I’m eager to contribute to Elm’s mission of delivering secure, innovative digital solutions. My background includes projects in Python, JavaScript, Node.js, and AWS, along with hands-on work developing web applications and streamlining deployment pipelines.
+I’m writing to express interest in a Software Engineer role at your esteemed company. With experience in software development, API testing, and software deployment, I’m eager to contribute to your team.
 
-I’m particularly drawn to Elm’s role in shaping Saudi Arabia’s digital transformation, and would welcome the chance to discuss how my skills and practical experience might support your teams. I’ve attached my resume for your review and would be glad to speak at your convenience.
+I’m proficient in Python, C++, JavaScript, and frameworks like Django and Nodejs, with additional experience in containerization tools such as Docker.
 
-Thank you for your time and consideration.
+I’ve attached my resume and would appreciate the opportunity to discuss how my skills align with your needs.
 
-Best regards,
+Thank you for your consideration
+
+Best Regards,
 Mohammed Magdi
 +966 50 356 8328
