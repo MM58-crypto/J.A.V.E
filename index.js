@@ -17,8 +17,27 @@ figlet('JAVE', function(err, data) {
     return;
   }
   console.log(data);
+
   let usr_email, emails_file;
 
+
+// tbc ........
+function user_input(prompt) {
+    return new Promise(resolve => {
+      rl.question(prompt, resolve);
+    });
+  }
+
+async function user_details() {
+
+  const email_address = await user_input('Email address: ');
+  const emails_file = await user_input('File name with list of emails ');
+  const body = await user_input('email body');
+  const resume_path = await user_input('Resume path');
+
+
+  }
+  // inefficient  method , bad code readbility
 rl.question(`Please enter your email address: `, (ans1) => {
     usr_email = ans1;
     console.log('Your email ' +  usr_email);
@@ -49,7 +68,7 @@ rl.question(`Please enter your email address: `, (ans1) => {
             });
     // email templates ? method 1: display to usr the suggested templates and let him select from the available templates
     // the usr needs to insert information like desired role, ....
-    // method 2: provide text files that the user can pass as input for email body (idk about this)
+    // method 2: provide text files that the user can pass as input for email body  - done
 async function emailIt(rec_email) {
     const info = await transporter.sendMail({
         from: usr_email,
