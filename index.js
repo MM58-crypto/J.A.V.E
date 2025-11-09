@@ -18,7 +18,7 @@ figlet('JAVE', function(err, data) {
     return;
   }
   console.log(data);
-
+/*
   function sendNow() {
 
   }
@@ -27,7 +27,6 @@ figlet('JAVE', function(err, data) {
 
   }
 
-  let usr_email, emails_file;
 
 
 
@@ -57,7 +56,8 @@ figlet('JAVE', function(err, data) {
     }
   });
 
-
+*/
+  let usr_email, emails_file;
   // inefficient  method , bad code readbility
 rl.question(`Please enter your email address: `, (ans1) => {
     usr_email = ans1;
@@ -108,9 +108,21 @@ async function emailIt(rec_email) {
     console.log("Email sent successfully: ", info.messageId);
 }
 
-for (let i=0; i < emails.length; i++) {
+//let scheduled_time = '35 * * * *';
+/*
+schedule.scheduleJob(scheduled_time, () => {
+
+});
+*/
+// send emails from sunday to thursday at 9:30 am
+// read about Date in js
+// it starts sending again once the next day and time arrives
+
+  for (let i=0; i < emails.length; i++) {
    emailIt(emails[i]).catch(console.error);
 }
+
+
 
 rl.close();
         });
