@@ -5,6 +5,7 @@ const nodemailer = require('nodemailer');
 const readline = require('node:readline');
 const figlet = require('figlet');
 const schedule = require('node-schedule');
+require('dotenv').config();
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -88,18 +89,18 @@ rl.question(`Please enter your email address: `, (ans1) => {
               },
             });
     // email templates ? method 1: display to usr the suggested templates and let him select from the available templates
-    // the usr needs to insert information like desired role, ....
-    // method 2: provide text files that the user can pass as input for email body  - done
+    // the usr needs to insert information like desired role, .... // maybe unnecessary
 async function emailIt(rec_email) {
     const info = await transporter.sendMail({
         from: usr_email,
         to: rec_email,
-        subject: "Job opportunity inquiry - Software Engineer",
+        subject: "Software Engineer - Exploring Opportunities",
         text: body,
 
         attachments: [
             {
-                filename: 'Resume.pdf',
+		// extract file name from resume path (maybe)    
+                filename: 'Mohd_Magdi_Resume.pdf',
                 path: ans4
             }
         ]
@@ -108,12 +109,9 @@ async function emailIt(rec_email) {
     console.log("Email sent successfully: ", info.messageId);
 }
 
-//let scheduled_time = '35 * * * *';
-/*
+let scheduled_time = '30 9 * * 1';
 schedule.scheduleJob(scheduled_time, () => {
 
-});
-*/
 // send emails from sunday to thursday at 9:30 am
 // read about Date in js
 // it starts sending again once the next day and time arrives
@@ -121,8 +119,7 @@ schedule.scheduleJob(scheduled_time, () => {
   for (let i=0; i < emails.length; i++) {
    emailIt(emails[i]).catch(console.error);
 }
-
-
+});
 
 rl.close();
         });
