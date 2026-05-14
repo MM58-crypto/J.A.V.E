@@ -1,133 +1,69 @@
-const http = require('http')
-const fs = require('fs')
-const url = require('url')
+const fs = require('fs');
 const nodemailer = require('nodemailer');
-const readline = require('node:readline');
 const figlet = require('figlet');
-const schedule = require('node-schedule');
 require('dotenv').config();
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const USR_EMAIL    = 'your_email@gmail.com';          // your Gmail address
+const EMAILS_FILE  = 'emails/email_list.txt';                // comma-separated recipient list
+const BODY_FILE    = 'body.txt';                      // plain text email body
+const RESUME_PATH  = 'resume.pdf';                    // path to your resume file
+const SUBJECT      = 'Software Engineer – Open to Opportunities';
+// ──────────────────────────────────────────────────────────────────────────────
+
+// load recipients and body
+const emails = fs
+  .readFileSync(EMAILS_FILE, 'utf8')
+  .split(',')
+  .map(e => e.trim().replace(/['"]+/g, '').replace(/\n/g, ''))
+  .filter(e => e.length > 0);
+
+const body = fs.readFileSync(BODY_FILE, 'utf8');
+
+// smtp transporter
+const transporter = nodemailer.createTransport({
+  host: 'smtp.gmail.com',
+  port: 465,
+  secure: true,
+  auth: {
+    user: USR_EMAIL,
+    pass: process.env.smtp_pass,
+  },
 });
 
-figlet('JAVE', function(err, data) {
-  if (err) {
-    console.log('Hmmm, there seems to be an error');
-    console.dir(err);
-    return;
-  }
-  console.log(data);
-/*
-  function sendNow() {
+// send a single email
+async function emailIt(recipient) {
+  const info = await transporter.sendMail({
+    from: USR_EMAIL,
+    to: recipient,
+    subject: SUBJECT,
+    text: body,
+    attachments: [
+      {
+        filename: 'Resume.pdf',
+        path: RESUME_PATH,
+      },
+    ],
+  });
+  console.log(`Sent to ${recipient} — ID: ${info.messageId}`);
+}
 
-  }
-
-  function scheduleSend() {
-
-  }
-
-
-
-
-  console.log("Select one of the options above: ");
-  console.log("1 - Send emails immediately ");
-  console.log("2 - Schedule emails ");
-  console.log("3 - Exit ");
-
-  rl.on('line', (line) => {
-    const opt = line.trim();
-
-    switch (opt) {
-    case '1':
-      ////
-      break;
-
-    case '2':
-      ////
-      break;
-
-    case 'exit':
-      rl.close();
-
-    default:
-      console.log('bleh');
-
-    }
+// main
+async function run() {
+  figlet('JAVE', (err, data) => {
+    if (!err) console.log(data);
   });
 
-*/
-  let usr_email, emails_file;
-  // inefficient  method , bad code readbility
-rl.question(`Please enter your email address: `, (ans1) => {
-    usr_email = ans1;
-    console.log('Your email ' +  usr_email);
+  console.log(`Recipients loaded: ${emails.length}`);
+  console.log('Sending emails...\n');
 
-  rl.question('Enter the file name that contains list of emails: ', (ans2) => {
-        emails_file = ans2;
-        const emails = fs.readFileSync(emails_file, 'utf8').split(',').map(email=> email.trim().replace(/['"]+/g, '')).filter(email => email);
-        console.log('email file: ' + emails_file);
+  for (const email of emails) {
+    await emailIt(email).catch(err =>
+      console.error(`Failed to send to ${email}:`, err.message)
+    );
+  }
 
-    rl.question('Enter a text file containing the email body: ', (ans3) => {
-        email_body = ans3;
-        const body = fs.readFileSync(email_body, 'utf8');
-
-      rl.question('Enter the file path of your resume: ', (ans4) => {
-        let resume_path = ans4;
-
-     
-      // smtp setup
-      const transporter =
-            nodemailer.createTransport({
-              host: "smtp.gmail.com",
-              port: 465,
-              secure: true,
-              auth: {
-                user: usr_email,
-                pass: process.env.smtp_pass
-              },
-            });
-    // email templates ? method 1: display to usr the suggested templates and let him select from the available templates
-    // the usr needs to insert information like desired role, .... // maybe unnecessary
-async function emailIt(rec_email) {
-    const info = await transporter.sendMail({
-        from: usr_email,
-        to: rec_email,
-        subject: "Software Engineer - Exploring Opportunities",
-        text: body,
-
-        attachments: [
-            {
-		// extract file name from resume path (maybe)    
-                filename: 'Mohd_Magdi_Resume.pdf',
-                path: ans4
-            }
-        ]
-    });
-
-    console.log("Email sent successfully: ", info.messageId);
+  console.log('\nAll emails processed.');
 }
 
-let scheduled_time = '30 9 * * 1';
-schedule.scheduleJob(scheduled_time, () => {
-
-// send emails from sunday to thursday at 9:30 am
-// read about Date in js
-// it starts sending again once the next day and time arrives
-
-  for (let i=0; i < emails.length; i++) {
-   emailIt(emails[i]).catch(console.error);
-}
-});
-
-rl.close();
-        });
-      });
-    });
-});
-
-
-});
-
-
+run();
