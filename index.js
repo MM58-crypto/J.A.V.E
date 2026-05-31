@@ -4,10 +4,10 @@ const figlet = require('figlet');
 require('dotenv').config();
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-const USR_EMAIL    = 'your_email@gmail.com';          // your Gmail address
-const EMAILS_FILE  = 'emails/email_list.txt';                // comma-separated recipient list
+const USR_EMAIL    = 'mohammed.magdi999@gmail.com';          // your Gmail address
+const EMAILS_FILE  = 'emails/emails_latest_edition.txt';                // comma-separated recipient list
 const BODY_FILE    = 'body.txt';                      // plain text email body
-const RESUME_PATH  = 'resume.pdf';                    // path to your resume file
+const RESUME_PATH  = '/home/mmk/mm-resumes/Mohd_Magdi_resume_7.0.pdf';                    // path to your resume file
 const SUBJECT      = 'Software Engineer – Open to Opportunities';
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ async function emailIt(recipient) {
     text: body,
     attachments: [
       {
-        filename: 'Resume.pdf',
+        filename: 'Mohd_Magdi_Resume.pdf',
         path: RESUME_PATH,
       },
     ],

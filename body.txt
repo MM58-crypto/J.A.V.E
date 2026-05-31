@@ -1,8 +1,8 @@
 Dear Hiring Team,
 
-I came across your esteemed company and was impressed by what your team is building — which is why I wanted to reach out directly.
+I came across your esteemed company and was impressed by what your team is building  which is why I wanted to reach out directly.
 
-I'm a software engineer based in Riyadh with two years of experience building and maintaining web systems, backend APIs, and AI-powered applications. I work across the full stack using Python, Django, React, and Node.js, and have delivered working products including an Arabic language chatbot and a data analytics platform built for the Saudi market.
+I am a software engineer based in Riyadh with a B.Sc. in Software Engineering and a track record of delivering web systems and AI-powered applications. I have built products that are live, tested, and used by real people, including a data platform built for the Saudi market and an Arabic language AI application.
 
 I am available immediately and would welcome the opportunity to discuss any current or upcoming openings on the software or technology side. Please find my resume attached.
 Thank you for your time.
