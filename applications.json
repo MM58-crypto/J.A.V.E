@@ -1,0 +1,1426 @@
+[
+  {
+    "date": "2026-08-20T11:33:49.375Z",
+    "title": "Software Engineer II - QuantumBlack, AI by McKinsey",
+    "company": "QuantumBlack, AI by McKinsey",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-ii-quantumblack-ai-by-mckinsey-at-quantumblack-ai-by-mckinsey-4359286300",
+    "score": 75,
+    "matched": [
+      "Python",
+      "AWS",
+      "SQL",
+      "Microservices",
+      "RAG pipelines"
+    ],
+    "missing": [
+      "System architecture design experience at scale",
+      "Consulting experience",
+      "Enterprise project leadership"
+    ],
+    "reasoning": "The candidate has strong technical skills aligned with AI engineering and backend development, though they lack the extensive seniority typically expected for an 'Engineer II' role at a top-tier consulting firm.",
+    "status": "error",
+    "reason": "Navigation timeout of 30000 ms exceeded"
+  },
+  {
+    "date": "2026-08-20T11:34:08.328Z",
+    "title": "Founding Software Engineer",
+    "company": "Q4",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/founding-software-engineer-at-q4-4453878003",
+    "score": 90,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "PostgreSQL",
+      "AWS",
+      "Git",
+      "RAG pipelines",
+      "LangChain",
+      "Qdrant",
+      "Weaviate"
+    ],
+    "missing": [
+      "TypeScript",
+      "React"
+    ],
+    "reasoning": "The candidate has a strong technical foundation in the exact AI/RAG stack required for this startup, is located in Riyadh, and fits the early-stage profile perfectly.",
+    "status": "skipped",
+    "reason": "no_easy_apply"
+  },
+  {
+    "date": "2026-08-20T11:34:26.764Z",
+    "title": "Software Engineer",
+    "company": "Vrtx",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-at-vrtx-4453443088",
+    "score": 65,
+    "matched": [
+      "REST APIs",
+      "SQL (PostgreSQL)",
+      "Git",
+      "Unit Testing",
+      "Microservices"
+    ],
+    "missing": [
+      "Java",
+      "Spring Boot",
+      "Deep distributed systems expertise"
+    ],
+    "reasoning": "The candidate has strong backend fundamentals and relevant project experience in Riyadh, but lacks the specific Java and Spring Boot expertise explicitly required by the role.",
+    "status": "skipped",
+    "reason": "no_easy_apply"
+  },
+  {
+    "date": "2026-08-20T11:34:48.889Z",
+    "title": "Analyst II Software Engineering",
+    "company": "DXC Technology",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/analyst-ii-software-engineering-at-dxc-technology-4455418980",
+    "score": 95,
+    "matched": [
+      "Bachelor's degree in Computer Science",
+      "1+ years of software engineering experience",
+      "Proficiency in software languages",
+      "Problem-solving mindset"
+    ],
+    "missing": [],
+    "reasoning": "The candidate significantly exceeds the basic requirements for the Analyst II role, bringing a strong technical stack that aligns perfectly with modern software development needs.",
+    "status": "skipped",
+    "reason": "no_easy_apply"
+  },
+  {
+    "date": "2026-08-20T11:34:56.090Z",
+    "title": "Senior ML Backend Engineer",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-ml-backend-engineer-at-jobgether-4455404513",
+    "score": 45,
+    "matched": [
+      "Python",
+      "AWS",
+      "Docker",
+      "REST APIs",
+      "SQL",
+      "LLM-based tools"
+    ],
+    "missing": [
+      "Senior-level engineering experience",
+      "MLOps infrastructure experience",
+      "Distributed computing",
+      "Production model deployment at scale"
+    ],
+    "reasoning": "The candidate is a junior developer with 2 years of experience, failing to meet the 'Senior' requirement stipulated in the job description.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:35:01.042Z",
+    "title": "Senior Integration Engineer (Python & Typescript)",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-integration-engineer-python-typescript-at-jobgether-4455415787",
+    "score": 40,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "REST APIs",
+      "Backend engineering"
+    ],
+    "missing": [
+      "10+ years of experience",
+      "TypeScript",
+      "Complex system integration experience"
+    ],
+    "reasoning": "The candidate has significantly less experience than the 10+ years required for this senior-level role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:38:13.766Z",
+    "title": "Software Engineer II - QuantumBlack, AI by McKinsey",
+    "company": "QuantumBlack, AI by McKinsey",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-ii-quantumblack-ai-by-mckinsey-at-quantumblack-ai-by-mckinsey-4359286300",
+    "score": 75,
+    "matched": [
+      "Python",
+      "AWS",
+      "Microservices",
+      "REST APIs",
+      "SQL",
+      "Software Engineering"
+    ],
+    "missing": [
+      "Enterprise-scale architecture experience",
+      "Consulting/Client-facing experience",
+      "Advanced Agile methodology leadership"
+    ],
+    "reasoning": "The candidate possesses strong modern AI/backend skills that align well with QuantumBlack's focus, though they lack the extensive seniority typically expected for an SE II role at McKinsey.",
+    "status": "error",
+    "reason": "Navigation timeout of 30000 ms exceeded"
+  },
+  {
+    "date": "2026-08-20T11:38:33.446Z",
+    "title": "Founding Software Engineer",
+    "company": "Q4",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/founding-software-engineer-at-q4-4453878003",
+    "score": 90,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "PostgreSQL",
+      "AWS",
+      "Git",
+      "RAG systems",
+      "Vector search",
+      "AI/LLM applications"
+    ],
+    "missing": [
+      "TypeScript",
+      "React"
+    ],
+    "reasoning": "The candidate has strong alignment with the technical stack and specific interest in AI/RAG, and their location in Riyadh and fluency in Arabic make them an ideal fit for this local startup.",
+    "status": "skipped",
+    "reason": "no_easy_apply"
+  },
+  {
+    "date": "2026-08-20T11:38:47.558Z",
+    "title": "Software Engineer",
+    "company": "Vrtx",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-at-vrtx-4453443088",
+    "score": 65,
+    "matched": [
+      "PostgreSQL",
+      "REST APIs",
+      "Git",
+      "Unit Testing",
+      "Software Engineering foundation"
+    ],
+    "missing": [
+      "Java",
+      "Spring Boot",
+      "Distributed systems transaction handling"
+    ],
+    "reasoning": "The candidate has a strong backend and AI engineering foundation, but lacks the specific Java/Spring Boot stack required by the role, though their aptitude for learning and local presence in Riyadh makes them a viable candidate.",
+    "status": "error",
+    "reason": "Execution context was destroyed, most likely because of a navigation."
+  },
+  {
+    "date": "2026-08-20T11:39:23.409Z",
+    "title": "Analyst II Software Engineering",
+    "company": "DXC Technology",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/analyst-ii-software-engineering-at-dxc-technology-4455418980",
+    "score": 95,
+    "matched": [
+      "Software engineering experience",
+      "Bachelor's degree in Computer Science",
+      "Python",
+      "JavaScript",
+      "Unit testing",
+      "Problem-solving"
+    ],
+    "missing": [],
+    "reasoning": "The candidate significantly exceeds the basic experience and technical requirements with a strong stack and relevant educational background.",
+    "status": "error",
+    "reason": "Navigation timeout of 30000 ms exceeded"
+  },
+  {
+    "date": "2026-08-20T11:39:29.396Z",
+    "title": "Senior ML Backend Engineer",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-ml-backend-engineer-at-jobgether-4455404513",
+    "score": 45,
+    "matched": [
+      "Python",
+      "AWS",
+      "Docker",
+      "REST APIs",
+      "SQL",
+      "LLM-based agents/frameworks"
+    ],
+    "missing": [
+      "Senior-level experience",
+      "ML infrastructure/MLOps experience",
+      "Distributed computing experience"
+    ],
+    "reasoning": "The candidate has 2 years of experience while the role requires a 'Senior' level engineer, which typically implies 5+ years of experience.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:39:33.392Z",
+    "title": "Senior Integration Engineer (Python & Typescript)",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-integration-engineer-python-typescript-at-jobgether-4455415787",
+    "score": 40,
+    "matched": [
+      "Python",
+      "TypeScript (via Node.js/JS)",
+      "PostgreSQL",
+      "AWS",
+      "Backend Engineering"
+    ],
+    "missing": [
+      "8 years of experience",
+      "System Integration architectural experience",
+      "GraphQL",
+      "Hasura"
+    ],
+    "reasoning": "The candidate has only 2 years of experience compared to the 10 years required by the role, making them ineligible based on the red line criteria for seniority.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:39:45.354Z",
+    "title": "مطور أودو Odoo Developer",
+    "company": "Al-Ghomlas Trading Company",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%A3%D9%88%D8%AF%D9%88-odoo-developer-at-al-ghomlas-trading-company-4453861812",
+    "score": 60,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "Software Engineering background",
+      "Riyadh-based"
+    ],
+    "missing": [
+      "Odoo framework experience",
+      "Odoo modules development",
+      "Odoo workflows/reports customization"
+    ],
+    "reasoning": "The candidate has strong backend fundamentals and Python proficiency but lacks direct, hands-on experience specifically with Odoo development, which is the core requirement for the role.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:40:07.798Z",
+    "title": "مطور تطبيقات",
+    "company": "Arab Sea Information Systems",
+    "location": "Jiddah, Makkah, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%AA%D8%B7%D8%A8%D9%8A%D9%82%D8%A7%D8%AA-at-arab-sea-information-systems-4452211928",
+    "score": 40,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "Python",
+      "MySQL",
+      "Software Engineering degree"
+    ],
+    "missing": [
+      "5-10 years experience",
+      "C# or Java experience",
+      "Desktop/Mobile app development"
+    ],
+    "reasoning": "The candidate only has 2 years of experience, failing the minimum requirement of 5 years set by the employer.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:40:48.690Z",
+    "title": "Warehouse Systems Developer",
+    "company": "CJ Logistics KSA – SILZ | Riyadh",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/warehouse-systems-developer-at-cj-logistics-ksa-%E2%80%93-silz-riyadh-4453452194",
+    "score": 75,
+    "matched": [
+      "Python",
+      "SQL",
+      "Computer Science Degree",
+      "Riyadh based",
+      "English proficiency"
+    ],
+    "missing": [
+      "SAP experience",
+      "WMS/WCS environment exposure",
+      "3 years of experience"
+    ],
+    "reasoning": "The candidate meets the core technical requirements and location preferences, though they are slightly under the 3-year experience threshold and lack warehouse-specific systems experience.",
+    "status": "error",
+    "reason": "Navigation timeout of 30000 ms exceeded"
+  },
+  {
+    "date": "2026-08-20T11:40:50.957Z",
+    "title": "ODOO Developer Technical Lead",
+    "company": "Awtad",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/odoo-developer-technical-lead-at-awtad-4456455077",
+    "score": 30,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "B.Sc. Computer Science",
+      "Riyadh-based"
+    ],
+    "missing": [
+      "Odoo development",
+      "Technical Leadership experience",
+      "IT department management",
+      "ERP solution design"
+    ],
+    "reasoning": "The candidate lacks the required 5 years of Odoo-specific experience and technical leadership, and the experience gap exceeds the 2-year threshold set for the role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:40:57.560Z",
+    "title": "Principal Telecom NOC & 5G Domain Expert",
+    "company": "emagine",
+    "location": "Dhahran, Eastern, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/principal-telecom-noc-5g-domain-expert-at-emagine-4455401622?position=1&pageNum=0&refId=yRYT8VJ6b9vZsXaDQDxmPg%3D%3D&trackingId=F%2BUMnBm5OubkMkNuVVgojg%3D%3D",
+    "score": 20,
+    "matched": [
+      "AI agent frameworks"
+    ],
+    "missing": [
+      "12+ years telecom experience",
+      "NOC leadership",
+      "5G network operations",
+      "Fault management expertise"
+    ],
+    "reasoning": "The candidate is a junior software/AI engineer lacking the decade-plus of senior telecom operations and NOC leadership experience required for this principal-level role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:41:00.144Z",
+    "title": "Lead Program Manager – Agentic AI Telecom Platform",
+    "company": "emagine",
+    "location": "Dhahran, Eastern, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/lead-program-manager-%E2%80%93-agentic-ai-telecom-platform-at-emagine-4455419146?position=2&pageNum=0&refId=yRYT8VJ6b9vZsXaDQDxmPg%3D%3D&trackingId=XLEQyRv%2FV%2FQqN9fRptPLNA%3D%3D",
+    "score": 15,
+    "matched": [
+      "RAG",
+      "LLMOps"
+    ],
+    "missing": [
+      "15+ years of telecom experience",
+      "Program management experience",
+      "Telecom domain expertise (RAN/Core/OSS/BSS)",
+      "Large-scale budget management"
+    ],
+    "reasoning": "The candidate is an entry-level software engineer with 2 years of experience, failing to meet the mandatory 15-year telecom leadership and large-scale program management requirement.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:44:18.599Z",
+    "title": "Senior ML Backend Engineer",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-ml-backend-engineer-at-jobgether-4455404513",
+    "score": 45,
+    "matched": [
+      "Python",
+      "AWS",
+      "Docker",
+      "REST APIs",
+      "SQL",
+      "LLM-based tools"
+    ],
+    "missing": [
+      "Senior-level engineering experience (required 5+ years)",
+      "MLOps infrastructure development",
+      "Distributed computing",
+      "Large-scale data pipeline experience"
+    ],
+    "reasoning": "The candidate is a junior engineer with 2 years of experience, while the role specifically requires senior-level backend engineering expertise.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:44:24.269Z",
+    "title": "Founding Software Engineer",
+    "company": "Q4",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/founding-software-engineer-at-q4-4453878003",
+    "score": 90,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "PostgreSQL",
+      "AWS",
+      "Git",
+      "RAG systems",
+      "Vector search",
+      "LLM applications"
+    ],
+    "missing": [
+      "React (TypeScript experience is implied but not explicit)"
+    ],
+    "reasoning": "The candidate has a strong technical overlap with the required stack and deep experience in the AI/RAG domain requested, and their Riyadh location and language skills align perfectly with the role.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:44:34.914Z",
+    "title": "Software Engineer II - QuantumBlack, AI by McKinsey",
+    "company": "QuantumBlack, AI by McKinsey",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-ii-quantumblack-ai-by-mckinsey-at-quantumblack-ai-by-mckinsey-4359286300",
+    "score": 75,
+    "matched": [
+      "Python",
+      "AWS",
+      "Microservices",
+      "REST APIs",
+      "SQL",
+      "Docker",
+      "Git"
+    ],
+    "missing": [
+      "System architecture at scale",
+      "Enterprise-level consulting experience",
+      "Leadership/Client-facing experience"
+    ],
+    "reasoning": "The candidate has strong technical skills relevant to AI/Backend engineering, although they are at the entry-level of the 2-5 year expectation for a Software Engineer II role.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:44:48.479Z",
+    "title": "Senior Integration Engineer (Python & Typescript)",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-integration-engineer-python-typescript-at-jobgether-4455415787",
+    "score": 30,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "Backend engineering"
+    ],
+    "missing": [
+      "TypeScript",
+      "8+ years of experience",
+      "Senior-level architecture experience"
+    ],
+    "reasoning": "The candidate has only 2 years of experience, failing to meet the mandatory 10+ years requirement for this senior-level role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:47:36.507Z",
+    "title": "Senior ML Backend Engineer",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-ml-backend-engineer-at-jobgether-4455404513",
+    "score": 45,
+    "matched": [
+      "Python",
+      "AWS",
+      "Docker",
+      "Backend Engineering",
+      "Microservices",
+      "RAG pipelines",
+      "LLM API integration"
+    ],
+    "missing": [
+      "Senior-level experience",
+      "MLOps infrastructure experience",
+      "Distributed computing",
+      "Model monitoring/governance"
+    ],
+    "reasoning": "The candidate has only 2 years of experience while the role requires a Senior-level professional, typically necessitating 5+ years of experience.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:47:42.488Z",
+    "title": "Software Engineer II - QuantumBlack, AI by McKinsey",
+    "company": "QuantumBlack, AI by McKinsey",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-ii-quantumblack-ai-by-mckinsey-at-quantumblack-ai-by-mckinsey-4359286300",
+    "score": 75,
+    "matched": [
+      "Python",
+      "AWS",
+      "Microservices",
+      "REST APIs",
+      "SQL",
+      "Docker"
+    ],
+    "missing": [
+      "System architecture design at scale",
+      "Enterprise consulting experience",
+      "Experience in large-scale agile transformations"
+    ],
+    "reasoning": "The candidate has strong technical skills relevant to AI/Backend engineering, though they are an entry-level professional applying for a mid-level role, requiring strong technical communication skills to bridge the experience gap.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:47:52.483Z",
+    "title": "Founding Software Engineer",
+    "company": "Q4",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/founding-software-engineer-at-q4-4453878003",
+    "score": 90,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "PostgreSQL",
+      "Cloud infrastructure",
+      "RAG systems",
+      "LLM applications",
+      "Vector search",
+      "Git",
+      "API development"
+    ],
+    "missing": [
+      "React (specifically requested, though candidate has general JS/Node experience)"
+    ],
+    "reasoning": "The candidate is a perfect match for an early-stage startup role, possessing both the requested core backend/cloud stack and the highly valued AI/RAG experience required to build the intelligence layer described.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:48:02.831Z",
+    "title": "Senior Integration Engineer (Python & Typescript)",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-integration-engineer-python-typescript-at-jobgether-4455415787",
+    "score": 30,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "REST APIs",
+      "AWS",
+      "Backend Engineer"
+    ],
+    "missing": [
+      "8 years of experience",
+      "TypeScript",
+      "GraphQL",
+      "Hasura",
+      "Senior-level architecture experience"
+    ],
+    "reasoning": "The candidate has only 2 years of experience compared to the required 10+ years, failing to meet the seniority requirement for this role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:48:07.502Z",
+    "title": "Analyst II Software Engineering",
+    "company": "DXC Technology",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/analyst-ii-software-engineering-at-dxc-technology-4455418980",
+    "score": 95,
+    "matched": [
+      "Bachelor's degree in Computer Science",
+      "1+ years of software engineering experience",
+      "Proficiency in software languages",
+      "Problem-solving mindset"
+    ],
+    "missing": [],
+    "reasoning": "The candidate significantly exceeds the basic requirements for the Analyst II role, possessing a relevant degree and 2 years of professional software development experience.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:48:16.036Z",
+    "title": "مطور أودو Odoo Developer",
+    "company": "Al-Ghomlas Trading Company",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%A3%D9%88%D8%AF%D9%88-odoo-developer-at-al-ghomlas-trading-company-4453861812",
+    "score": 60,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "SQL",
+      "Riyadh-based",
+      "Arabic native"
+    ],
+    "missing": [
+      "Odoo framework",
+      "Odoo modules development",
+      "Odoo workflows customization"
+    ],
+    "reasoning": "The candidate has strong backend fundamentals and Python proficiency which are core to Odoo development, but lacks specific professional experience with the Odoo framework and its unique module architecture.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:48:18.705Z",
+    "title": "Java Solution Architect",
+    "company": "CoorB",
+    "location": "Jiddah, Makkah, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/java-solution-architect-at-coorb-4455635155",
+    "score": 20,
+    "matched": [
+      "B.Sc. Computer Science"
+    ],
+    "missing": [
+      "Java",
+      "8+ years of experience",
+      "Fintech industry experience",
+      "Architecture design experience"
+    ],
+    "reasoning": "The candidate has only 2 years of experience compared to the 8+ years required, and lacks the necessary Java and Fintech architectural background.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:48:25.259Z",
+    "title": "مطور تطبيقات",
+    "company": "Arab Sea Information Systems",
+    "location": "Jiddah, Makkah, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%AA%D8%B7%D8%A8%D9%8A%D9%82%D8%A7%D8%AA-at-arab-sea-information-systems-4452211928",
+    "score": 40,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "Python",
+      "MySQL",
+      "Computer Science degree"
+    ],
+    "missing": [
+      "5-10 years experience",
+      "C# or Java experience",
+      "Desktop application development experience"
+    ],
+    "reasoning": "The candidate meets the domain requirements but fails to meet the minimum experience threshold required by the company.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:48:45.962Z",
+    "title": "Warehouse Systems Developer",
+    "company": "CJ Logistics KSA – SILZ | Riyadh",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/warehouse-systems-developer-at-cj-logistics-ksa-%E2%80%93-silz-riyadh-4453452194",
+    "score": 75,
+    "matched": [
+      "Python",
+      "SQL",
+      "Computer Science degree",
+      "Riyadh location",
+      "English proficiency"
+    ],
+    "missing": [
+      "3-5 years of experience (candidate has 2)",
+      "SAP/WMS/WCS exposure",
+      "C# or Java proficiency"
+    ],
+    "reasoning": "The candidate meets the core technical and location requirements, and while slightly below the experience threshold, the discrepancy is within an acceptable margin for a high-potential developer.",
+    "status": "skipped",
+    "reason": "no_easy_apply"
+  },
+  {
+    "date": "2026-08-20T11:52:17.762Z",
+    "title": "Founding Software Engineer",
+    "company": "Q4",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/founding-software-engineer-at-q4-4453878003",
+    "score": 90,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "PostgreSQL",
+      "AWS",
+      "Git",
+      "RAG systems",
+      "Vector search",
+      "LLM applications"
+    ],
+    "missing": [
+      "TypeScript (familiarity implied but not stated)"
+    ],
+    "reasoning": "The candidate has a strong technical overlap with the required stack and specific experience in RAG and vector databases, which aligns perfectly with the startup's core product goals.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:52:23.079Z",
+    "title": "Software Engineer II - QuantumBlack, AI by McKinsey",
+    "company": "QuantumBlack, AI by McKinsey",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-ii-quantumblack-ai-by-mckinsey-at-quantumblack-ai-by-mckinsey-4359286300",
+    "score": 75,
+    "matched": [
+      "Python",
+      "AWS",
+      "Microservices",
+      "REST APIs",
+      "SQL",
+      "Docker",
+      "Agile methodologies"
+    ],
+    "missing": [
+      "System architecture design experience at scale",
+      "Enterprise client-facing consulting experience"
+    ],
+    "reasoning": "The candidate has a strong technical foundation in relevant stacks and AI tooling, though they are early in their career for an 'Engineer II' role which typically requires more industry experience.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:52:49.234Z",
+    "title": "Software Engineer II - QuantumBlack, AI by McKinsey",
+    "company": "QuantumBlack, AI by McKinsey",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-ii-quantumblack-ai-by-mckinsey-at-quantumblack-ai-by-mckinsey-4359286300",
+    "score": 75,
+    "matched": [
+      "Python",
+      "AWS",
+      "Microservices",
+      "REST APIs",
+      "SQL",
+      "Docker",
+      "Git"
+    ],
+    "missing": [
+      "Enterprise-scale architectural experience",
+      "Client-facing consulting experience",
+      "Advanced project leadership experience"
+    ],
+    "reasoning": "The candidate has strong technical foundations in Python and AI/LLM integration relevant to QuantumBlack, though they lack the extensive seniority and consulting experience typically expected for McKinsey client engagements.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:52:55.255Z",
+    "title": "Founding Software Engineer",
+    "company": "Q4",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/founding-software-engineer-at-q4-4453878003",
+    "score": 90,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "PostgreSQL",
+      "AWS",
+      "Git",
+      "RAG pipelines",
+      "LLM integration (LangChain/LangGraph)",
+      "Riyadh location"
+    ],
+    "missing": [
+      "TypeScript",
+      "React"
+    ],
+    "reasoning": "The candidate has a strong alignment with the technical requirements and AI-specific stack mentioned in the job description, and is based in the target location.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:52:59.866Z",
+    "title": "Analyst II Software Engineering",
+    "company": "DXC Technology",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/analyst-ii-software-engineering-at-dxc-technology-4455418980",
+    "score": 95,
+    "matched": [
+      "Bachelor's degree in Computer Science",
+      "1+ years of experience",
+      "software development",
+      "coding and debugging"
+    ],
+    "missing": [],
+    "reasoning": "The candidate significantly exceeds the minimum requirements for the Analyst II Software Engineering position and possesses a strong technical stack that aligns well with modern software development practices.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:53:02.168Z",
+    "title": "Senior ML Backend Engineer",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-ml-backend-engineer-at-jobgether-4455404513",
+    "score": 45,
+    "matched": [
+      "Python",
+      "AWS",
+      "Docker",
+      "REST APIs",
+      "SQL",
+      "LLM-based agents/frameworks"
+    ],
+    "missing": [
+      "Senior-level experience",
+      "MLOps infrastructure design",
+      "distributed computing",
+      "large-scale production system experience"
+    ],
+    "reasoning": "The candidate has only 2 years of experience and is a recent graduate, failing to meet the 'Senior' level requirement specified for the role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:53:04.194Z",
+    "title": "Senior Integration Engineer (Python & Typescript)",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-integration-engineer-python-typescript-at-jobgether-4455415787",
+    "score": 35,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "AWS",
+      "REST APIs",
+      "Backend Engineering"
+    ],
+    "missing": [
+      "8+ years of experience",
+      "TypeScript",
+      "System Integration Architecture",
+      "Complex API design at scale"
+    ],
+    "reasoning": "The candidate has only 2 years of professional experience, falling significantly short of the 10-year requirement specified for this senior-level role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:53:08.819Z",
+    "title": "مطور أودو Odoo Developer",
+    "company": "Al-Ghomlas Trading Company",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%A3%D9%88%D8%AF%D9%88-odoo-developer-at-al-ghomlas-trading-company-4453861812",
+    "score": 60,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "Software Engineering background",
+      "Riyadh-based"
+    ],
+    "missing": [
+      "Odoo framework experience",
+      "Odoo modules development",
+      "Odoo workflows/reports customization"
+    ],
+    "reasoning": "The candidate has a strong backend foundation and Python proficiency but lacks specific professional experience in the Odoo ecosystem, which is the primary requirement for the role.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:53:11.683Z",
+    "title": "مطور تطبيقات",
+    "company": "Arab Sea Information Systems",
+    "location": "Jiddah, Makkah, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%AA%D8%B7%D8%A8%D9%8A%D9%82%D8%A7%D8%AA-at-arab-sea-information-systems-4452211928",
+    "score": 45,
+    "matched": [
+      "Python",
+      "JavaScript",
+      "Node.js",
+      "MySQL",
+      "Computer Science degree"
+    ],
+    "missing": [
+      "5-10 years of experience",
+      "C#",
+      "Java",
+      "Angular/React",
+      "Mobile/Desktop development experience"
+    ],
+    "reasoning": "The candidate only has 2 years of experience, failing to meet the mandatory minimum requirement of 5 years set by the employer.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:53:17.815Z",
+    "title": "Data Privacy",
+    "company": "Cognizant",
+    "location": "Riyadh Region",
+    "link": "https://sa.linkedin.com/jobs/view/data-privacy-at-cognizant-4455615995",
+    "score": 30,
+    "matched": [
+      "REST APIs",
+      "Microservices"
+    ],
+    "missing": [
+      "OneTrust",
+      "Data Privacy compliance expertise",
+      "7-10 years experience",
+      "Enterprise architecture"
+    ],
+    "reasoning": "The candidate has only 2 years of experience compared to the 7-10 years required, and lacks the specialized domain expertise in OneTrust and data privacy compliance necessary for a Technical Lead role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:53:33.948Z",
+    "title": "Warehouse Systems Developer",
+    "company": "CJ Logistics KSA – SILZ | Riyadh",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/warehouse-systems-developer-at-cj-logistics-ksa-%E2%80%93-silz-riyadh-4453452194",
+    "score": 75,
+    "matched": [
+      "Python",
+      "SQL",
+      "Computer Science Degree",
+      "Software Development experience",
+      "Riyadh based",
+      "English proficiency"
+    ],
+    "missing": [
+      "SAP experience",
+      "WMS/WCS experience",
+      "C# or Java (preferred over JS/Node)"
+    ],
+    "reasoning": "The candidate meets the core technical requirements and location criteria, though they fall slightly short on the requested years of experience and lack specific logistics industry software exposure.",
+    "status": "error",
+    "reason": "Execution context was destroyed, most likely because of a navigation."
+  },
+  {
+    "date": "2026-08-20T11:54:00.901Z",
+    "title": "Software Engineer II - QuantumBlack, AI by McKinsey",
+    "company": "QuantumBlack, AI by McKinsey",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-ii-quantumblack-ai-by-mckinsey-at-quantumblack-ai-by-mckinsey-4359286300",
+    "score": 75,
+    "matched": [
+      "Python",
+      "AWS",
+      "Microservices",
+      "REST APIs",
+      "SQL",
+      "Docker",
+      "Git"
+    ],
+    "missing": [
+      "Cloud Architecture experience",
+      "Client-facing consulting experience",
+      "Large-scale system design experience"
+    ],
+    "reasoning": "The candidate has strong technical skills relevant to AI engineering and backend development, though they lack the professional experience level typically expected for an 'Engineer II' role at a top-tier consultancy.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:54:06.177Z",
+    "title": "Founding Software Engineer",
+    "company": "Q4",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/founding-software-engineer-at-q4-4453878003",
+    "score": 90,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "PostgreSQL",
+      "AWS",
+      "Git",
+      "RAG pipelines",
+      "LLM integration (LangChain/LangGraph)",
+      "Vector search (Qdrant/Weaviate)",
+      "Riyadh location"
+    ],
+    "missing": [
+      "React",
+      "TypeScript (preferred over JS)"
+    ],
+    "reasoning": "The candidate's tech stack is highly aligned with the core requirements (RAG, vector search, Node.js) and they are locally based, making them an excellent fit for an early-stage startup.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:54:11.591Z",
+    "title": "Analyst II Software Engineering",
+    "company": "DXC Technology",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/analyst-ii-software-engineering-at-dxc-technology-4455418980",
+    "score": 95,
+    "matched": [
+      "Bachelor's degree in Computer Science",
+      "1+ years of experience",
+      "Coding skills",
+      "Debugging skills",
+      "Communication skills"
+    ],
+    "missing": [],
+    "reasoning": "The candidate significantly exceeds the basic requirements for the Analyst II role, possessing 2 years of professional experience and a strong technical stack that aligns well with modern software engineering practices.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:54:18.869Z",
+    "title": "Senior ML Backend Engineer",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-ml-backend-engineer-at-jobgether-4455404513",
+    "score": 45,
+    "matched": [
+      "Python",
+      "AWS",
+      "Docker",
+      "REST APIs",
+      "SQL",
+      "LLM-based agents experience"
+    ],
+    "missing": [
+      "Senior-level professional experience",
+      "Infrastructure engineering experience",
+      "Distributed computing at scale",
+      "MLOps/Production ML pipelines"
+    ],
+    "reasoning": "While the candidate possesses relevant AI/LLM skills, they lack the senior-level backend and ML infrastructure experience required for the role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:54:21.412Z",
+    "title": "Senior Integration Engineer (Python & Typescript)",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-integration-engineer-python-typescript-at-jobgether-4455415787",
+    "score": 30,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "REST APIs",
+      "Saudi Arabia location"
+    ],
+    "missing": [
+      "8+ years of experience",
+      "TypeScript",
+      "Complex system integration architecture"
+    ],
+    "reasoning": "The candidate is a junior engineer with 2 years of experience, failing to meet the mandatory 10+ year requirement for this senior-level role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:54:26.116Z",
+    "title": "مطور أودو Odoo Developer",
+    "company": "Al-Ghomlas Trading Company",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%A3%D9%88%D8%AF%D9%88-odoo-developer-at-al-ghomlas-trading-company-4453861812",
+    "score": 60,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "REST APIs",
+      "Riyadh, Saudi Arabia resident"
+    ],
+    "missing": [
+      "Odoo Framework experience",
+      "Odoo Modules development",
+      "Odoo workflow customization"
+    ],
+    "reasoning": "The candidate has strong backend fundamentals and Python proficiency required for Odoo, but lacks specific commercial experience with the Odoo framework and its proprietary module structure.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:54:37.888Z",
+    "title": "مطور تطبيقات",
+    "company": "Arab Sea Information Systems",
+    "location": "Jiddah, Makkah, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%AA%D8%B7%D8%A8%D9%8A%D9%82%D8%A7%D8%AA-at-arab-sea-information-systems-4452211928",
+    "score": 40,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "Python",
+      "MySQL",
+      "Computer Science degree"
+    ],
+    "missing": [
+      "5-10 years experience",
+      "C# or Java",
+      "Angular or React",
+      "Mobile/Desktop development experience"
+    ],
+    "reasoning": "The candidate meets the domain requirements but fails the mandatory years of experience threshold defined in the job description.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:54:45.807Z",
+    "title": "Data Privacy",
+    "company": "Cognizant",
+    "location": "Riyadh Region",
+    "link": "https://sa.linkedin.com/jobs/view/data-privacy-at-cognizant-4455615995",
+    "score": 30,
+    "matched": [
+      "REST APIs",
+      "Microservices"
+    ],
+    "missing": [
+      "OneTrust",
+      "Data Privacy compliance",
+      "7-10 years of experience",
+      "Enterprise architecture"
+    ],
+    "reasoning": "The candidate has only 2 years of experience compared to the 7-10 years required, and lacks the specialized domain expertise in OneTrust and data privacy regulations.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:55:25.562Z",
+    "title": "Warehouse Systems Developer",
+    "company": "CJ Logistics KSA – SILZ | Riyadh",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/warehouse-systems-developer-at-cj-logistics-ksa-%E2%80%93-silz-riyadh-4453452194",
+    "score": 75,
+    "matched": [
+      "Python",
+      "SQL",
+      "Computer Science Degree",
+      "Riyadh based",
+      "English proficiency"
+    ],
+    "missing": [
+      "SAP experience",
+      "WMS/WCS exposure",
+      "C# or Java"
+    ],
+    "reasoning": "The candidate meets the core technical requirements and location preferences, and while they have 2 years of experience instead of the requested 3, they fall within the acceptable margin for a junior-mid level role.",
+    "status": "error",
+    "reason": "Navigation timeout of 30000 ms exceeded"
+  },
+  {
+    "date": "2026-08-20T11:55:29.622Z",
+    "title": "ODOO Developer Technical Lead",
+    "company": "Awtad",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/odoo-developer-technical-lead-at-awtad-4456455077",
+    "score": 35,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "B.Sc. Computer Science",
+      "Riyadh based"
+    ],
+    "missing": [
+      "5+ years of Odoo development",
+      "Odoo module customization",
+      "ERP technical leadership",
+      "IT department management"
+    ],
+    "reasoning": "The candidate has only 2 years of experience compared to the 5+ years required and lacks the specific Odoo ERP development and IT management experience essential for a Technical Lead role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:55:42.100Z",
+    "title": "Principal Telecom NOC & 5G Domain Expert",
+    "company": "emagine",
+    "location": "Dhahran, Eastern, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/principal-telecom-noc-5g-domain-expert-at-emagine-4455401622?position=1&pageNum=0&refId=A0mYvGmuN1rPb2KwQpunFw%3D%3D&trackingId=SeChBpeN9wyi9Az8TYclLQ%3D%3D",
+    "score": 20,
+    "matched": [
+      "AI agent frameworks"
+    ],
+    "missing": [
+      "12+ years telecom experience",
+      "NOC leadership",
+      "4G/5G network operations",
+      "Service Assurance expertise"
+    ],
+    "reasoning": "The candidate is a junior software engineer with only 2 years of experience and lacks the required 12+ years of senior-level telecom network operations domain expertise.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T11:55:44.862Z",
+    "title": "Lead Program Manager – Agentic AI Telecom Platform",
+    "company": "emagine",
+    "location": "Dhahran, Eastern, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/lead-program-manager-%E2%80%93-agentic-ai-telecom-platform-at-emagine-4455419146?position=2&pageNum=0&refId=A0mYvGmuN1rPb2KwQpunFw%3D%3D&trackingId=J86pnySWqaXOvnEKkCTBsA%3D%3D",
+    "score": 15,
+    "matched": [
+      "RAG",
+      "LLMOps"
+    ],
+    "missing": [
+      "15+ years experience",
+      "Telecom domain expertise",
+      "OSS/BSS knowledge",
+      "Network automation experience",
+      "Multi-vendor program management"
+    ],
+    "reasoning": "The candidate is an entry-level software engineer with 2 years of experience, failing to meet the requirement for 15+ years of telecom-specific leadership experience and program budget management.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T12:51:49.688Z",
+    "title": "Founding Software Engineer",
+    "company": "Q4",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/founding-software-engineer-at-q4-4453878003",
+    "score": 90,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "PostgreSQL",
+      "AWS",
+      "Git",
+      "RAG pipelines",
+      "Vector search (Qdrant, Weaviate)",
+      "LLM applications (LangChain, OpenAI API)"
+    ],
+    "missing": [
+      "TypeScript",
+      "React"
+    ],
+    "reasoning": "The candidate has a highly relevant technical stack including RAG and vector database experience, aligns perfectly with the location requirements, and possesses the necessary breadth to contribute as a founding engineer.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T12:52:02.983Z",
+    "title": "Software Engineer II - QuantumBlack, AI by McKinsey",
+    "company": "QuantumBlack, AI by McKinsey",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-ii-quantumblack-ai-by-mckinsey-at-quantumblack-ai-by-mckinsey-4359286300",
+    "score": 75,
+    "matched": [
+      "Python",
+      "AWS",
+      "SQL",
+      "Microservices",
+      "RAG pipelines"
+    ],
+    "missing": [
+      "System architecture at scale",
+      "Enterprise consulting experience",
+      "Leadership/Mentorship experience"
+    ],
+    "reasoning": "The candidate has strong technical skills aligned with AI engineering and backend development, though they lack the seniority typically required for a Software Engineer II role at a top-tier consulting firm.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T12:52:07.455Z",
+    "title": "Analyst II Software Engineering",
+    "company": "DXC Technology",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/analyst-ii-software-engineering-at-dxc-technology-4455418980",
+    "score": 95,
+    "matched": [
+      "Bachelor's degree in Computer Science",
+      "1+ years of software engineering experience",
+      "Proficiency in software languages",
+      "Coding and debugging skills",
+      "Problem-solving mindset"
+    ],
+    "missing": [],
+    "reasoning": "The candidate meets all basic qualifications, possesses relevant technical experience, and holds a degree in the required field, making them an excellent fit for this Analyst II position.",
+    "status": "manually_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T12:52:15.964Z",
+    "title": "Senior ML Backend Engineer",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-ml-backend-engineer-at-jobgether-4455404513",
+    "score": 45,
+    "matched": [
+      "Python",
+      "AWS",
+      "Docker",
+      "REST APIs",
+      "SQL",
+      "LLM-based tools"
+    ],
+    "missing": [
+      "Senior-level engineering experience",
+      "MLOps infrastructure experience",
+      "Distributed computing at scale",
+      "Large-scale data pipeline experience"
+    ],
+    "reasoning": "The candidate is a junior developer with only 2 years of experience, failing to meet the 'Senior' level requirement specified in the job description.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T12:52:18.578Z",
+    "title": "Application Engineer",
+    "company": "Cerebra",
+    "location": "Jeddah, Makkah, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/application-engineer-at-cerebra-4453446326",
+    "score": 65,
+    "matched": [
+      "SQL",
+      "Linux",
+      "Communication",
+      "B.Sc. Computer Science"
+    ],
+    "missing": [
+      "Java-based application stack",
+      "Enterprise application server deployment",
+      "Application support experience"
+    ],
+    "reasoning": "The candidate has strong general software engineering skills but lacks the specific Java enterprise environment and application support expertise required for this role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T12:52:20.457Z",
+    "title": "مطور تطبيقات",
+    "company": "Arab Sea Information Systems",
+    "location": "Jiddah, Makkah, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%AA%D8%B7%D8%A8%D9%8A%D9%82%D8%A7%D8%AA-at-arab-sea-information-systems-4452211928",
+    "score": 40,
+    "matched": [
+      "JavaScript",
+      "Node.js",
+      "Python",
+      "MySQL",
+      "Software Engineering"
+    ],
+    "missing": [
+      "C#",
+      "Java",
+      "Angular/React",
+      "Mobile/Desktop Development",
+      "3-8 years of additional experience"
+    ],
+    "reasoning": "The candidate has only 2 years of experience compared to the mandatory 5-year minimum required by the job description, triggering an automatic rejection.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T12:52:24.605Z",
+    "title": "مطور أودو Odoo Developer",
+    "company": "Al-Ghomlas Trading Company",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/%D9%85%D8%B7%D9%88%D8%B1-%D8%A3%D9%88%D8%AF%D9%88-odoo-developer-at-al-ghomlas-trading-company-4453861812",
+    "score": 60,
+    "matched": [
+      "Python",
+      "PostgreSQL",
+      "Software Engineering background",
+      "Riyadh-based"
+    ],
+    "missing": [
+      "Odoo framework experience",
+      "Odoo Modules development",
+      "Odoo Workflows/Reporting customization"
+    ],
+    "reasoning": "The candidate has strong backend and Python skills but lacks specific, professional experience with the Odoo framework, which is a mandatory requirement for this role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-20T12:54:13.367Z",
+    "title": "AI SPECIALIST",
+    "company": "PvP-Pc",
+    "location": "Abha, 'Asir, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/ai-specialist-at-pvp-pc-4453437776",
+    "score": 85,
+    "matched": [
+      "Python",
+      "OpenAI API",
+      "RAG pipelines",
+      "LangChain",
+      "Arabic",
+      "English"
+    ],
+    "missing": [
+      "n8n/Make automation",
+      "On-site presence in Abha"
+    ],
+    "reasoning": "The candidate possesses strong technical foundations in LLM orchestration and Python development, though they will need to relocate to Abha and demonstrate proficiency in low-code automation tools like n8n or Make.",
+    "status": "error",
+    "reason": "Navigation timeout of 80000 ms exceeded"
+  }
+]
