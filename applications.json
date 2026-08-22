@@ -1422,5 +1422,71 @@
     "reasoning": "The candidate possesses strong technical foundations in LLM orchestration and Python development, though they will need to relocate to Abha and demonstrate proficiency in low-code automation tools like n8n or Make.",
     "status": "error",
     "reason": "Navigation timeout of 80000 ms exceeded"
+  },
+  {
+    "date": "2026-08-22T10:19:58.068Z",
+    "title": "Junior Software Engineer",
+    "company": "PantherIQ",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/junior-software-engineer-at-pantheriq-4455013500",
+    "score": 95,
+    "matched": [
+      "Software Development",
+      "Programming",
+      "Back-End Web Development",
+      "APIs",
+      "Databases",
+      "Computer Science Degree",
+      "AI/Automation familiarity"
+    ],
+    "missing": [],
+    "reasoning": "The candidate has a highly relevant technical stack, including strong backend and AI/RAG experience that aligns perfectly with the company's focus on AI automation.",
+    "status": "error",
+    "reason": "Navigation timeout of 80000 ms exceeded"
+  },
+  {
+    "date": "2026-08-22T10:20:00.623Z",
+    "title": "Senior Devops Engineer - GCP",
+    "company": "Halian | Managed Services, Recruitment Agency & Contract Staffing",
+    "location": "Dhahran, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-devops-engineer-gcp-at-halian-managed-services-recruitment-agency-contract-staffing-4456609926",
+    "score": 40,
+    "matched": [
+      "Python",
+      "Git",
+      "Linux",
+      "Docker"
+    ],
+    "missing": [
+      "GCP",
+      "Terraform",
+      "CI/CD Pipeline Expertise",
+      "Infrastructure as Code",
+      "Configuration Management"
+    ],
+    "reasoning": "The candidate is a junior Software/AI Engineer with no professional DevOps or GCP experience, making them a poor fit for a Senior DevOps role.",
+    "status": "auto_skipped",
+    "reason": ""
+  },
+  {
+    "date": "2026-08-22T10:20:02.333Z",
+    "title": "Senior Mobile Engineer (Flutter)",
+    "company": "Jobgether",
+    "location": "Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-mobile-engineer-flutter-at-jobgether-4456212693",
+    "score": 15,
+    "matched": [
+      "Location: Saudi Arabia"
+    ],
+    "missing": [
+      "Flutter",
+      "Mobile Development",
+      "Dart",
+      "iOS/Android development",
+      "Mobile Analytics"
+    ],
+    "reasoning": "The candidate has a backend and AI-focused skill set with no experience in Flutter or mobile application development, failing to meet the core technical requirements for the role.",
+    "status": "auto_skipped",
+    "reason": ""
   }
 ]

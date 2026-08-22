@@ -173,20 +173,49 @@ async function applyToJob(job, resumePath) {
 
   try {
     console.log(`\n  Opening: ${job.link}`);
-    await page.goto(job.link, { waitUntil: 'networkidle2', timeout: 80000 });
-    await delay(APPLY_DELAY_MS);
+
+    // use domcontentloaded — linkedin never fully reaches networkidle2
+    await page.goto(job.link, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await delay(3000); // let dynamic content render
 
     // check for external redirect
     if (await isExternalRedirect(page)) {
-      console.log('  ⚠  External site detected — skipping.');
+      console.log('  skipping — external site.');
       await browser.close();
       return { status: 'skipped', reason: 'external_redirect' };
     }
 
-    // click Easy Apply button
-    const easyApplyBtn = await page.$('[data-control-name="jobdetails_topcard_inapply"], .jobs-apply-button, button[aria-label*="Easy Apply"]');
+    // find Easy Apply button — try multiple selectors in order
+    const EASY_APPLY_SELECTORS = [
+      'button[aria-label*="Easy Apply"]',
+      'button.jobs-apply-button',
+      '.jobs-apply-button--top-card button',
+      'button[data-control-name="jobdetails_topcard_inapply"]',
+      '.jobs-s-apply button',
+      'button:has-text("Easy Apply")',
+    ];
+
+    let easyApplyBtn = null;
+    for (const selector of EASY_APPLY_SELECTORS) {
+      try {
+        await page.waitForSelector(selector, { timeout: 5000 });
+        easyApplyBtn = await page.$(selector);
+        if (easyApplyBtn) break;
+      } catch { continue; }
+    }
+
+    // fallback — find any button with Easy Apply text
     if (!easyApplyBtn) {
-      console.log('  ⚠  No Easy Apply button found — skipping.');
+      easyApplyBtn = await page.evaluateHandle(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        return buttons.find(b => b.innerText.trim().includes('Easy Apply')) || null;
+      });
+      const isValid = await page.evaluate(el => el !== null && el.tagName === 'BUTTON', easyApplyBtn);
+      if (!isValid) easyApplyBtn = null;
+    }
+
+    if (!easyApplyBtn) {
+      console.log('  skipping — no Easy Apply button found.');
       await browser.close();
       return { status: 'skipped', reason: 'no_easy_apply' };
     }
@@ -212,18 +241,26 @@ async function applyToJob(job, resumePath) {
       await delay(APPLY_DELAY_MS);
 
       // look for submit button
-      const submitBtn = await page.$('button[aria-label="Submit application"], button[data-control-name="submit_unify"]');
-      if (submitBtn) {
+      const submitBtn = await page.evaluateHandle(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        return buttons.find(b => /submit application/i.test(b.innerText) || b.getAttribute('aria-label')?.toLowerCase().includes('submit')) || null;
+      });
+      const submitValid = await page.evaluate(el => el !== null && el.tagName === 'BUTTON', submitBtn);
+      if (submitValid) {
         await submitBtn.click();
         await delay(2000);
-        console.log('  ✓  Application submitted.');
+        console.log('  application submitted.');
         await browser.close();
         return { status: 'applied' };
       }
 
       // look for next/continue button
-      const nextBtn = await page.$('button[aria-label="Continue to next step"], button[aria-label="Next"], footer button:last-child');
-      if (nextBtn) {
+      const nextBtn = await page.evaluateHandle(() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        return buttons.find(b => /next|continue/i.test(b.innerText) || /next|continue/i.test(b.getAttribute('aria-label') || '')) || null;
+      });
+      const nextValid = await page.evaluate(el => el !== null && el.tagName === 'BUTTON', nextBtn);
+      if (nextValid) {
         await nextBtn.click();
         await delay(APPLY_DELAY_MS);
         continue;
