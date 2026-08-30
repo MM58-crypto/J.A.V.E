@@ -1,1 +1,406 @@
-
+[
+  {
+    "date": "2026-08-30T08:37:19.452Z",
+    "title": "Network Security Engineer",
+    "company": "Confidential Jobs",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/network-security-engineer-at-confidential-jobs-4458848459",
+    "score": 45,
+    "matched": [
+      "Bachelor's degree in Computer Science"
+    ],
+    "missing": [
+      "Network security experience",
+      "Firewall management",
+      "Network infrastructure knowledge",
+      "Routing/Switching expertise"
+    ],
+    "reasoning": "The candidate is a Software/AI Engineer with no relevant experience or clear interest in network security, making them a poor fit for this specialized infrastructure-focused traineeship.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:37:22.521Z",
+    "title": "DevOps Engineer",
+    "company": "Devoteam",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/devops-engineer-at-devoteam-4459724856",
+    "score": 35,
+    "matched": [
+      "Bash",
+      "Docker",
+      "Linux"
+    ],
+    "missing": [
+      "Azure DevOps",
+      "Terraform",
+      "Vault",
+      "DORA metrics",
+      "Target Operating Model design",
+      "Strategic consulting experience"
+    ],
+    "reasoning": "The candidate's profile is focused on software and AI development, lacking the necessary infrastructure, security governance, and enterprise-level DevOps strategic consulting experience required for this transformation role.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:37:28.480Z",
+    "title": "Full Stack Developer",
+    "company": "Jadeer Logistics",
+    "location": "Al Khobar, Eastern, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/full-stack-developer-at-jadeer-logistics-4458831589",
+    "score": 45,
+    "matched": [
+      "JavaScript",
+      "React",
+      "Node.js",
+      "PostgreSQL",
+      "MySQL",
+      "Bachelor of Computer Science"
+    ],
+    "missing": [
+      ".NET framework",
+      "C#",
+      "Microsoft Power Platform",
+      "Azure",
+      "Dataverse",
+      "PCF controls"
+    ],
+    "reasoning": "The candidate lacks the mandatory .NET/C# experience and Power Platform expertise required for this role, and falls short of the minimum experience threshold.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:37:31.716Z",
+    "title": "Model Accuracy and AI Performance, Senior Staff Engineer - Riyadh, KSA",
+    "company": "Qualcomm",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/model-accuracy-and-ai-performance-senior-staff-engineer-riyadh-ksa-at-qualcomm-4392896043",
+    "score": 30,
+    "matched": [
+      "Python",
+      "C++",
+      "Git"
+    ],
+    "missing": [
+      "12+ years experience",
+      "Machine learning framework internals",
+      "NPU/Hardware optimization experience",
+      "Model architecture research experience",
+      "Compiler development experience"
+    ],
+    "reasoning": "The candidate has only 3 years of experience, failing to meet the requirement of 12+ years for this Senior Staff level role, and lacks the specialized low-level NPU/hardware optimization experience required.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:37:35.826Z",
+    "title": "Machine Learning Engineer, Staff level (Datacentre AI Engineering) - Riyadh, KSA",
+    "company": "Qualcomm",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/machine-learning-engineer-staff-level-datacentre-ai-engineering-riyadh-ksa-at-qualcomm-4392401954",
+    "score": 45,
+    "matched": [
+      "C++",
+      "Python",
+      "Linux",
+      "LLM APIs"
+    ],
+    "missing": [
+      "8+ years experience",
+      "PyTorch",
+      "CUDA",
+      "Compiler development",
+      "Distributed systems (multi-SoC/multi-card)"
+    ],
+    "reasoning": "The candidate lacks the seniority and the deep, specialized low-level AI engineering experience required for a Staff-level position in datacenter AI optimization.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:37:39.615Z",
+    "title": "Senior Cybersecurity Solutions Engineer - Splunk (Saudi Arabia)",
+    "company": "Cisco",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-cybersecurity-solutions-engineer-splunk-saudi-arabia-at-cisco-4418641489",
+    "score": 15,
+    "matched": [
+      "Python",
+      "Docker"
+    ],
+    "missing": [
+      "10+ years of cybersecurity experience",
+      "Pre-sales/Solutions engineering experience",
+      "SecOps expertise",
+      "Enterprise security platform deployment",
+      "Proof of Value (POV) delivery"
+    ],
+    "reasoning": "The candidate has only 3 years of experience in software engineering and lacks the required 10+ years of cybersecurity pre-sales experience and specialized domain expertise in SecOps.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:37:42.446Z",
+    "title": "Principal Specialist, Data Science & Analytics",
+    "company": "Maaden",
+    "location": "Riyadh, Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/principal-specialist-data-science-analytics-at-maaden-4404727925",
+    "score": 35,
+    "matched": [
+      "Python",
+      "AWS",
+      "LLM APIs",
+      "Bachelor of Computer Science"
+    ],
+    "missing": [
+      "10+ years of experience",
+      "Advanced data science",
+      "Statistical modeling",
+      "Decision intelligence",
+      "Stakeholder advisory"
+    ],
+    "reasoning": "The candidate has 3 years of experience, failing to meet the minimum requirement of 10 years for this Principal-level role, and lacks the necessary background in advanced statistical modeling and business stakeholder advisory.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:40:53.008Z",
+    "title": "Network Security Engineer",
+    "company": "Confidential Jobs",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/network-security-engineer-at-confidential-jobs-4458848459",
+    "score": 45,
+    "matched": [
+      "Bachelor of Computer Science"
+    ],
+    "missing": [
+      "Network Security experience",
+      "TCP/IP knowledge",
+      "Firewall management",
+      "Network infrastructure experience"
+    ],
+    "reasoning": "The candidate is a Software Engineer with no professional background in network security or infrastructure, making this role a significant pivot rather than a career alignment.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:41:02.775Z",
+    "title": "Data Governance Specialist",
+    "company": "REEF GROUP | مجموعة ريف",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/data-governance-specialist-at-reef-group-%D9%85%D8%AC%D9%85%D9%88%D8%B9%D8%A9-%D8%B1%D9%8A%D9%81-4460889812",
+    "score": 30,
+    "matched": [
+      "Bachelor's degree",
+      "3 years of experience",
+      "Arabic",
+      "English"
+    ],
+    "missing": [
+      "Data Governance framework experience",
+      "DAMA principles",
+      "NDMO and SADAIA regulatory knowledge",
+      "Data lineage and cataloging tools",
+      "Retail industry experience"
+    ],
+    "reasoning": "The candidate is a Software/AI Engineer with no professional background in data governance, compliance, or the specific regulatory frameworks (NDMO/SADAIA) required for this role.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:41:07.066Z",
+    "title": "IT SUPPORT OFFICER",
+    "company": "Napco National",
+    "location": "Makkah Region",
+    "link": "https://sa.linkedin.com/jobs/view/it-support-officer-at-napco-national-4459306294",
+    "score": 35,
+    "matched": [
+      "Linux",
+      "Bash"
+    ],
+    "missing": [
+      "hardware support",
+      "printer maintenance",
+      "network cabling",
+      "IT helpdesk experience"
+    ],
+    "reasoning": "The candidate is a highly specialized Software/AI Engineer, whereas the role is a hands-on IT support position focused on hardware maintenance, peripherals, and infrastructure cabling.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:41:09.837Z",
+    "title": "Application Support Specialist",
+    "company": "2P Perfect Presentation",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/application-support-specialist-at-2p-perfect-presentation-4458845287",
+    "score": 65,
+    "matched": [
+      "SQL Database Querying & Reporting",
+      "RESTful APIs",
+      "Linux",
+      "Bachelor of Computer Science"
+    ],
+    "missing": [
+      "SMS Platforms & VAS Services",
+      "SMPP Protocols",
+      "Incident Management",
+      "24/7 Operations experience"
+    ],
+    "reasoning": "While the candidate has technical proficiency in databases and APIs, their profile is heavily focused on software and AI development rather than the dedicated 24/7 application support/VAS operations role required.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:41:12.400Z",
+    "title": "IT Network Security Officer",
+    "company": "Zamil Offshore Services Company",
+    "location": "Eastern, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/it-network-security-officer-at-zamil-offshore-services-company-4460887582",
+    "score": 25,
+    "matched": [
+      "Bachelor of Computer Science"
+    ],
+    "missing": [
+      "5-8 years of experience in network security",
+      "Firewall administration",
+      "VPN/Routing/Switching",
+      "ISO 27001/NCA compliance",
+      "SIEM/Network Security operations"
+    ],
+    "reasoning": "The candidate is a Software Engineer with 3 years of experience, which does not align with the required 5-8 years of experience in Network Security operations.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:41:14.855Z",
+    "title": "Identity and Access Control Manager",
+    "company": "Derayah Financial",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/identity-and-access-control-manager-at-derayah-financial-4459706897",
+    "score": 20,
+    "matched": [
+      "Bachelor's degree",
+      "Arabic",
+      "English"
+    ],
+    "missing": [
+      "IGA",
+      "MFA",
+      "SSO",
+      "PAM",
+      "IAM policy management",
+      "Cybersecurity governance",
+      "Access lifecycle management"
+    ],
+    "reasoning": "The candidate is a Software Engineer with zero professional experience in Identity and Access Management (IAM), which is a distinct cybersecurity domain requiring specialized knowledge in security controls and identity governance.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:41:18.347Z",
+    "title": "Network Engineer",
+    "company": "Albawani | البواني",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/network-engineer-at-albawani-%D8%A7%D9%84%D8%A8%D9%88%D8%A7%D9%86%D9%8A-4458849501",
+    "score": 15,
+    "matched": [
+      "Bachelor of Computer Science",
+      "AWS"
+    ],
+    "missing": [
+      "LAN/WAN",
+      "MPLS",
+      "VPN",
+      "CCNA/CCNP",
+      "Network Security",
+      "NCA compliance",
+      "5-7 years experience"
+    ],
+    "reasoning": "The candidate is a Software Engineer with 3 years of experience in application development, which does not align with the specialized infrastructure and network engineering focus of the role.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:41:20.034Z",
+    "title": "Information Technology Specialist",
+    "company": "البستان | Albustan",
+    "location": "Khamīs Mushayţ, 'Asir, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/information-technology-specialist-at-%D8%A7%D9%84%D8%A8%D8%B3%D8%AA%D8%A7%D9%86-albustan-4452586871",
+    "score": 40,
+    "matched": [
+      "Linux",
+      "Bash",
+      "Database management",
+      "Troubleshooting"
+    ],
+    "missing": [
+      "Network Administration",
+      "Network Security",
+      "Hardware Maintenance",
+      "IT Support experience"
+    ],
+    "reasoning": "The candidate has a strong software development background but lacks the specific network administration and hardware maintenance experience required for this on-site IT support role.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:41:51.420Z",
+    "title": "Equipment and laundry technician",
+    "company": "Delta Hotels and Resorts®",
+    "location": "Jiddah, Makkah, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/equipment-and-laundry-technician-at-delta-hotels-and-resorts%C2%AE-4459702853",
+    "score": 75,
+    "matched": [
+      "computer diagnostics",
+      "hardware support",
+      "software support",
+      "end-user support",
+      "network support"
+    ],
+    "missing": [
+      "physical hardware maintenance experience",
+      "local residence in Jeddah"
+    ],
+    "reasoning": "While the candidate is overqualified for this IT support role, they possess the core technical foundation required to perform the duties of an Equipment and IT Technician.",
+    "status": "error",
+    "reason": "Failed to launch the browser process:  Code: 0\n\nstderr:\nOpening in existing browser session.\n\nTROUBLESHOOTING: https://pptr.dev/troubleshooting\n",
+    "reviewed": false
+  },
+  {
+    "date": "2026-08-30T08:41:53.322Z",
+    "title": "Technician-Property Systems",
+    "company": "Delta Hotels and Resorts®",
+    "location": "Jiddah, Makkah, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/technician-property-systems-at-delta-hotels-and-resorts%C2%AE-4459498863",
+    "score": 30,
+    "matched": [
+      "Arabic",
+      "English"
+    ],
+    "missing": [
+      "Building systems maintenance",
+      "Facility management hardware/software",
+      "Hospitality industry IT support"
+    ],
+    "reasoning": "The candidate is a Software Engineer specializing in backend and AI development, while the job is a Property Systems Technician role focused on hotel facility infrastructure and on-site hardware/system support.",
+    "status": "auto_skipped",
+    "reason": "",
+    "reviewed": false
+  }
+]

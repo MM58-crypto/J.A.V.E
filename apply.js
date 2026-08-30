@@ -1,13 +1,18 @@
 #!/usr/bin/env node
 
 const chalk      = require('chalk');
-const readline   = require('readline');
+const inquirer   = require('inquirer');
 const fs         = require('fs');
 const path       = require('path');
 const { getJobs, fetchDescription } = require('./scrapers');
 const { evaluateJob }  = require('./evaluator');
 const { tailorResume, convertResumeToPdf } = require('./tailor');
 const { applyToJob } = require('./applier');
+const {
+  loadResumeConfig,
+  selectResume,
+  selectResumeManually,
+} = require('./resume-selector');
 require('dotenv').config({ quiet: true });
 
 const MAX_JOBS      = 15;
@@ -16,7 +21,7 @@ const SCORE_THRESHOLD = 50;
 
 // ── logger ────────────────────────────────────────────────────────────────────
 
-function logApplication(job, evaluation, result) {
+function logApplication(job, evaluation, result, resumeSelection = null) {
   const entry = {
     date:      new Date().toISOString(),
     title:     job.title,
@@ -30,6 +35,12 @@ function logApplication(job, evaluation, result) {
     status:    result.status,
     reason:    result.reason || '',
     reviewed:  Boolean(result.reviewed),
+    ...(resumeSelection ? {
+      resume_profile: resumeSelection.profile.id,
+      resume_selection_confidence: resumeSelection.confidence,
+      resume_selection_reason: resumeSelection.reason,
+      resume_selection_method: resumeSelection.method,
+    } : {}),
   };
 
   let log = [];
@@ -60,7 +71,7 @@ function waitForKey(validKeys) {
 
 // ── human in the loop display ─────────────────────────────────────────────────
 
-function printEvaluation(job, ev) {
+function printEvaluation(job, ev, resumeSelection) {
   const scoreColor = ev.score >= 70 ? chalk.greenBright : ev.score >= 50 ? chalk.yellow : chalk.red;
 
   console.log(chalk.dim('\n  ────────────────────────────────────────────'));
@@ -71,8 +82,26 @@ function printEvaluation(job, ev) {
   if (ev.matched.length)    console.log(chalk.green(`  ✓ ${ev.matched.slice(0, 5).join('  ✓ ')}`));
   if (ev.missing.length)    console.log(chalk.red(`  ✗ ${ev.missing.slice(0, 3).join('  ✗ ')}`));
   if (ev.red_lines.length)  console.log(chalk.red(`  ⚠  ${ev.red_lines.join(', ')}`));
+  console.log(chalk.blue(`  Resume: ${resumeSelection.profile.label}  ·  ${Math.round(resumeSelection.confidence * 100)}% confidence  ·  ${resumeSelection.method}`));
+  console.log(chalk.dim(`  ${resumeSelection.reason}`));
 
-  console.log(chalk.dim('\n  [Y] Prepare application   [N] Skip   [V] View JD   [Q] Quit\n'));
+  console.log(chalk.dim('\n  [Y] Prepare application   [R] Change resume   [N] Skip   [V] View JD   [Q] Quit\n'));
+}
+
+async function promptResumeOverride(config, currentSelection) {
+  const { profileId } = await inquirer.prompt([{
+    type: 'list',
+    name: 'profileId',
+    message: 'Choose the base resume:',
+    choices: config.profiles.map(profile => ({
+      name: profile.id === currentSelection.profile.id
+        ? `${profile.label} (recommended)`
+        : profile.label,
+      value: profile.id,
+    })),
+    default: currentSelection.profile.id,
+  }]);
+  return selectResumeManually(profileId, config);
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
@@ -83,6 +112,8 @@ async function main() {
     console.log(chalk.red('\n  Usage: node apply.js "Software Engineer"\n'));
     process.exit(1);
   }
+
+  const resumeConfig = loadResumeConfig();
 
   console.clear();
   console.log(chalk.blueBright.bold('\n  JAVE Agent — LinkedIn Auto-Apply\n'));
@@ -123,13 +154,21 @@ async function main() {
       continue;
     }
 
+    process.stdout.write(chalk.dim(`  Selecting resume for "${job.title}"...`));
+    let resumeSelection = await selectResume(job, { config: resumeConfig });
+    process.stdout.write('\r' + ' '.repeat(60) + '\r');
+
     // human in the loop
-    printEvaluation(job, ev);
+    printEvaluation(job, ev, resumeSelection);
     let key = null;
     while (!['y', 'n', 'q'].includes(key)) {
-      key = await waitForKey(['y', 'n', 'v', 'q']);
+      key = await waitForKey(['y', 'n', 'v', 'r', 'q']);
       if (key === 'v') {
         console.log(chalk.dim('\n' + (job.description || '').slice(0, 800) + '\n'));
+      } else if (key === 'r') {
+        resumeSelection = await promptResumeOverride(resumeConfig, resumeSelection);
+        printEvaluation(job, ev, resumeSelection);
+        key = null;
       }
     }
 
@@ -139,7 +178,7 @@ async function main() {
     }
 
     if (key === 'n') {
-      logApplication(job, ev, { status: 'manually_skipped' });
+      logApplication(job, ev, { status: 'manually_skipped' }, resumeSelection);
       skipped++;
       continue;
     }
@@ -148,7 +187,7 @@ async function main() {
     console.log(chalk.dim('\n  Tailoring resume...'));
     let resumePath;
     try {
-      const { savedTo, pdfPath } = await tailorResume(job);
+      const { savedTo, pdfPath } = await tailorResume(job, resumeSelection.profile.path);
       resumePath = path.resolve(pdfPath);
       console.log(chalk.green(`  Resume saved: ${savedTo}`));
       console.log(chalk.green(`  PDF ready:   ${pdfPath}`));
@@ -156,13 +195,13 @@ async function main() {
       console.log(chalk.yellow(`  Tailoring failed (${error.message}) — converting the base resume.`));
       try {
         resumePath = convertResumeToPdf(
-          path.resolve(process.env.RESUME_PATH || './my_resume.docx'),
+          resumeSelection.profile.path,
           path.resolve(process.env.OUTPUT_DIR || './output'),
         );
         console.log(chalk.green(`  Base resume PDF ready: ${resumePath}`));
       } catch (conversionError) {
         const result = { status: 'error', reason: conversionError.message };
-        logApplication(job, ev, result);
+        logApplication(job, ev, result, resumeSelection);
         console.log(chalk.red(`  Resume preparation failed: ${conversionError.message}`));
         skipped++;
         continue;
@@ -173,7 +212,7 @@ async function main() {
     console.log(chalk.dim('  Launching browser...\n'));
     const result = await applyToJob(job, resumePath);
 
-    logApplication(job, ev, result);
+    logApplication(job, ev, result, resumeSelection);
 
     if (result.status === 'applied') {
       console.log(chalk.greenBright(`  Application confirmed for ${job.title} at ${job.company}`));

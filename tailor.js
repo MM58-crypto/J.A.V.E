@@ -9,7 +9,6 @@ require('dotenv').config({ quiet: true });
 
 // ── config ────────────────────────────────────────────────────────────────────
 
-const RESUME_PATH = path.resolve(process.env.RESUME_PATH || './my_resume.docx');
 const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR || './output');
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
 const MAX_JD_CHARS = 8000;
@@ -84,7 +83,8 @@ function trimText(text, maxChars) {
 
 // ── base resume text extraction ───────────────────────────────────────────────
 
-async function loadBaseResume(resumePath = RESUME_PATH) {
+async function loadBaseResume(resumePath) {
+  if (!resumePath) throw new Error('Base resume path is required.');
   const absoluteResumePath = path.resolve(resumePath);
   if (!fs.existsSync(absoluteResumePath)) {
     throw new Error(`Resume not found at: ${absoluteResumePath}`);
@@ -234,10 +234,11 @@ async function saveDocx(text, job) {
 
 // ── main export ───────────────────────────────────────────────────────────────
 
-async function tailorResume(job) {
+async function tailorResume(job, resumePath) {
   if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set in .env');
+  if (!resumePath) throw new Error('Base resume path is required.');
 
-  const baseResume = await loadBaseResume();
+  const baseResume = await loadBaseResume(resumePath);
   const jd         = trimText(job.description || '', MAX_JD_CHARS);
   const resume     = trimText(baseResume, MAX_RES_CHARS);
 

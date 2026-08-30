@@ -4,6 +4,11 @@ const inquirer = require('inquirer');
 const chalk    = require('chalk');
 const { getJobs, fetchDescription } = require('./scrapers');
 const { tailorResume } = require('./tailor');
+const {
+  loadResumeConfig,
+  selectResume,
+  selectResumeManually,
+} = require('./resume-selector');
 
 // ── color by freshness ────────────────────────────────────────────────────────
 
@@ -50,6 +55,31 @@ function buildChoices(jobs) {
   });
 }
 
+async function chooseResumeForJob(job) {
+  const config = loadResumeConfig();
+  const recommendation = await selectResume(job, { config });
+
+  console.log(chalk.blue(`\n  Recommended resume: ${recommendation.profile.label} (${Math.round(recommendation.confidence * 100)}% confidence)`));
+  console.log(chalk.dim(`  ${recommendation.reason}\n`));
+
+  const { profileId } = await inquirer.prompt([{
+    type: 'list',
+    name: 'profileId',
+    message: 'Choose the base resume:',
+    choices: config.profiles.map(profile => ({
+      name: profile.id === recommendation.profile.id
+        ? `${profile.label} (recommended)`
+        : profile.label,
+      value: profile.id,
+    })),
+    default: recommendation.profile.id,
+  }]);
+
+  return profileId === recommendation.profile.id
+    ? recommendation
+    : selectResumeManually(profileId, config);
+}
+
 // ── job detail view ───────────────────────────────────────────────────────────
 
 async function showDetail(job, keyword) {
@@ -93,9 +123,11 @@ async function showDetail(job, keyword) {
   }]);
 
   if (action === 'tailor') {
-    console.log(chalk.dim('\n  Tailoring resume — this may take a moment...\n'));
+    console.log(chalk.dim('\n  Selecting the best base resume...\n'));
     try {
-      const { text, savedTo } = await tailorResume(job);
+      const selection = await chooseResumeForJob(job);
+      console.log(chalk.dim(`\n  Tailoring the ${selection.profile.label} resume — this may take a moment...\n`));
+      const { text, savedTo } = await tailorResume(job, selection.profile.path);
       console.log(chalk.greenBright('  Done! Tailored resume saved to: ') + chalk.white(savedTo));
       console.log(chalk.dim('\n  Preview (first 500 chars):\n'));
       console.log(chalk.white(text.slice(0, 500) + (text.length > 500 ? '\n  [...]' : '')));

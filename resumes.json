@@ -1,0 +1,108 @@
+{
+  "defaultProfile": "swe",
+  "profiles": [
+    {
+      "id": "it",
+      "label": "IT Specialist",
+      "path": "./it_resume.docx",
+      "targetTitles": [
+        "IT Specialist",
+        "IT Support Specialist",
+        "Technical Support Specialist",
+        "Help Desk Technician",
+        "Service Desk Analyst",
+        "Desktop Support Technician",
+        "IT Technician",
+        "Systems Administrator",
+        "Network Support Specialist"
+      ],
+      "descriptionSignals": [
+        "Active Directory",
+        "Microsoft 365",
+        "Windows Server",
+        "technical support",
+        "end-user support",
+        "help desk",
+        "service desk",
+        "ticketing",
+        "hardware troubleshooting",
+        "desktop support",
+        "network troubleshooting",
+        "device management",
+        "ITIL"
+      ]
+    },
+    {
+      "id": "swe",
+      "label": "Software Engineer",
+      "path": "./swe_resume.docx",
+      "targetTitles": [
+        "Software Engineer",
+        "Software Developer",
+        "Backend Engineer",
+        "Backend Developer",
+        "Frontend Engineer",
+        "Frontend Developer",
+        "Full Stack Engineer",
+        "Full Stack Developer",
+        "Web Developer",
+        "Application Developer"
+      ],
+      "descriptionSignals": [
+        "software development",
+        "full stack",
+        "backend",
+        "frontend",
+        "REST API",
+        "microservices",
+        "JavaScript",
+        "TypeScript",
+        "Node.js",
+        "React",
+        "Django",
+        "FastAPI",
+        "PHP",
+        "SQL",
+        "CI/CD"
+      ]
+    },
+    {
+      "id": "ai",
+      "label": "AI Engineer",
+      "path": "./ai_resume.docx",
+      "targetTitles": [
+        "AI Engineer",
+        "Artificial Intelligence Engineer",
+        "Machine Learning Engineer",
+        "ML Engineer",
+        "Applied AI Engineer",
+        "Generative AI Engineer",
+        "LLM Engineer",
+        "NLP Engineer",
+        "Data Scientist"
+      ],
+      "descriptionSignals": [
+        "artificial intelligence",
+        "machine learning",
+        "generative AI",
+        "large language model",
+        "LLM",
+        "retrieval-augmented generation",
+        "RAG",
+        "embeddings",
+        "vector database",
+        "semantic search",
+        "natural language processing",
+        "NLP",
+        "transformers",
+        "PyTorch",
+        "TensorFlow",
+        "model training",
+        "model evaluation",
+        "prompt engineering",
+        "LangChain",
+        "LangGraph"
+      ]
+    }
+  ]
+}

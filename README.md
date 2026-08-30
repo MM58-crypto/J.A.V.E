@@ -16,15 +16,20 @@ JAVE started as a simple bulk email tool for job applications. It has since evol
 
 ```
 jave/
-├── scout.js          # Browse jobs interactively (no applying)
-├── apply.js          # Full agent — search, evaluate, approve, apply
-├── scrapers.js       # Fetches jobs from LinkedIn and JSearch API
-├── evaluator.js      # Scores job descriptions against your profile using Gemini
-├── tailor.js         # Tailors your resume to a job description using Gemini
-├── applier.js        # Controls the browser and fills LinkedIn Easy Apply forms
-├── defaults.json     # Your personal info and default answers for application forms
-├── applications.json # Auto-generated log of every application attempted
-└── .env              # API keys and file paths (not committed to git)
+├── scout.js             # Browse jobs interactively (no applying)
+├── apply.js             # Full agent — search, evaluate, approve, apply
+├── scrapers.js          # Fetches jobs from LinkedIn and JSearch API
+├── evaluator.js         # Scores job descriptions against your profile using Gemini
+├── resume-selector.js   # Chooses a resume from the job title and description
+├── resumes.json         # Resume profile paths, target titles, and role signals
+├── tailor.js            # Tailors the selected resume using Gemini
+├── applier.js           # Controls the browser and fills LinkedIn Easy Apply forms
+├── defaults.json        # Personal info and default application answers
+├── applications.json    # Auto-generated log of every application attempted
+├── it_resume.docx       # IT Specialist base resume (not committed)
+├── swe_resume.docx      # Software Engineer base resume (not committed)
+├── ai_resume.docx       # AI Engineer base resume (not committed)
+└── .env                 # API keys and browser paths (not committed)
 ```
 
 ---
@@ -51,7 +56,6 @@ Create a `.env` file in the project root:
 
 ```
 GEMINI_API_KEY=your_gemini_api_key
-RESUME_PATH=./my_resume.docx
 OUTPUT_DIR=./output
 CHROMIUM_PATH=/usr/bin/chromium
 CHROMIUM_PROFILE=/home/yourusername/.config/chromium
@@ -59,6 +63,8 @@ JSEARCH_API_KEY=your_rapidapi_key_here
 ```
 
 `JSEARCH_API_KEY` is optional. Without it, Scout pulls from LinkedIn only.
+
+Resume sources are configured in `resumes.json`. Each profile has a trusted local DOCX path, target job titles, and description signals. The default configuration expects `it_resume.docx`, `swe_resume.docx`, and `ai_resume.docx` in the project root. Keep personal resume files in `.gitignore`.
 
 Fill in `defaults.json` with your profile and default application answers before running the agent. `null` values are never guessed; the agent asks for them when a form requires an answer.
 
@@ -97,14 +103,16 @@ The agent will:
 
 1. Fetch up to 15 LinkedIn jobs matching your keyword
 2. Evaluate each one against `defaults.json`; anything below 50% match is skipped automatically
-3. Display a match summary and wait for you to approve preparation
-4. Read the configured DOCX or PDF resume and tailor it without inventing experience
-5. Save the tailored resume as DOCX and convert it to PDF with LibreOffice
-6. Open Chromium and fill supported Easy Apply text fields, selects, radio buttons, checkboxes, and resume uploads
-7. Ask for any answer that is absent from the profile instead of guessing
-8. Display every collected answer and keep the browser form open for verification
-9. Submit only when you explicitly type `SUBMIT`; `EDIT` returns to review and `CANCEL` exits without submission
-10. Record confirmed, unconfirmed, cancelled, skipped, incomplete, and failed outcomes in `applications.json`
+3. Select the most appropriate base DOCX from the job title and description
+4. Display the match summary, resume recommendation, confidence, and reason
+5. Allow `[R]` to override the resume, then wait for you to approve preparation
+6. Tailor only the selected resume without inventing experience
+7. Save the tailored resume as DOCX and convert it to PDF with LibreOffice
+8. Open Chromium and fill supported Easy Apply text fields, selects, radio buttons, checkboxes, and resume uploads
+9. Ask for any answer that is absent from the profile instead of guessing
+10. Display every collected answer and keep the browser form open for verification
+11. Submit only when you explicitly type `SUBMIT`; `EDIT` returns to review and `CANCEL` exits without submission
+12. Record confirmed, unconfirmed, cancelled, skipped, incomplete, and failed outcomes in `applications.json`
 
 ---
 
@@ -112,7 +120,9 @@ The agent will:
 
 Tailoring runs automatically after you approve preparation. It can also be tested in isolation via Scout — select a job, open its detail view, and choose the tailor option.
 
-The base resume may be DOCX or a selectable PDF. Set its path with `RESUME_PATH`. DOCX input is extracted with Mammoth, and all resumes used for applications are converted to PDF with LibreOffice.
+The selector compares each job's title and description with the profiles in `resumes.json`. Gemini performs the semantic selection when available; validated role signals provide a deterministic fallback. Apply displays the recommendation and supports `[R]` to change it. Scout asks you to confirm or replace the recommendation.
+
+Base resume profiles must be DOCX files. Only the selected DOCX is supplied to the tailoring model. The tailored DOCX is then converted to PDF with LibreOffice for upload.
 
 Tailored DOCX and PDF resumes are saved to the `output` folder with the company name and a timestamp in the filename.
 
