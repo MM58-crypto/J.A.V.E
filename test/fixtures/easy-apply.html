@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Easy Apply Fixture</title>
+  <style>
+    body { font-family: sans-serif; }
+    label, fieldset { display: block; margin: 8px 0; }
+  </style>
+</head>
+<body>
+  <div role="dialog" aria-label="Easy Apply">
+    <label for="first-name">First name</label>
+    <input id="first-name" type="text" required>
+
+    <label for="last-name">Last name</label>
+    <input id="last-name" type="text" required>
+
+    <label for="email">Email address</label>
+    <input id="email" type="email" required>
+
+    <label for="country-code">Phone country code</label>
+    <select id="country-code" required>
+      <option value="">Choose one</option>
+      <option value="sa">Saudi Arabia (+966)</option>
+      <option value="us">United States (+1)</option>
+    </select>
+
+    <label for="phone">Mobile phone number</label>
+    <input id="phone" type="tel" required>
+
+    <label for="portfolio-note">Portfolio note</label>
+    <textarea id="portfolio-note"></textarea>
+
+    <fieldset>
+      <legend>Are you authorized to work?</legend>
+      <label><input type="radio" name="authorization" value="yes" required> Yes</label>
+      <label><input type="radio" name="authorization" value="no" required> No</label>
+    </fieldset>
+
+    <label><input id="certify" type="checkbox" required> I certify that these answers are accurate</label>
+
+    <label for="resume">Resume</label>
+    <input id="resume" type="file" accept="application/pdf" required>
+
+    <button id="submit" type="button">Submit application</button>
+  </div>
+  <script>
+    window.submitClicks = 0;
+    document.getElementById('submit').addEventListener('click', () => {
+      window.submitClicks += 1;
+      const confirmation = document.createElement('p');
+      confirmation.textContent = 'Application was sent';
+      document.body.appendChild(confirmation);
+    });
+  </script>
+</body>
+</html>

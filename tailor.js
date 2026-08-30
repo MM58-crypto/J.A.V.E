@@ -1,17 +1,19 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { Document, Packer, Paragraph, TextRun, AlignmentType, LevelFormat, BorderStyle, TabStopType } = require('docx');
-const fs       = require('fs');
-const path     = require('path');
-const pdfParse = require('pdf-parse');
-require('dotenv').config();
+const { PDFParse } = require('pdf-parse');
+const mammoth = require('mammoth');
+const { execFileSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config({ quiet: true });
 
 // ── config ────────────────────────────────────────────────────────────────────
 
-const RESUME_PATH  = process.env.RESUME_PATH || './base_resume.pdf';
-const OUTPUT_DIR   = process.env.OUTPUT_DIR  || './output';
+const RESUME_PATH = path.resolve(process.env.RESUME_PATH || './my_resume.docx');
+const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR || './output');
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
-const MAX_JD_CHARS = 3000;
-const MAX_RES_CHARS= 3000;
+const MAX_JD_CHARS = 8000;
+const MAX_RES_CHARS = 12000;
 
 // ── system prompt (placeholder) ───────────────────────────────────────────────
 
@@ -44,17 +46,35 @@ function cleanMarkdown(text) {
 
 // ── convert .docx to .pdf via LibreOffice headless ────────────────────────────
 
-async function convertToPdf(docxPath) {
-  const { execSync } = require('child_process');
-  const outDir = path.dirname(docxPath);
-  try {
-    execSync(`libreoffice --headless --convert-to pdf --outdir "${outDir}" "${docxPath}"`, { timeout: 30000 });
-    const pdfPath = docxPath.replace(/\.docx$/, '.pdf');
-    if (fs.existsSync(pdfPath)) return pdfPath;
-  } catch {
-    // LibreOffice not available — return null silently
+function convertResumeToPdf(resumePath, outputDir = path.dirname(resumePath)) {
+  const absoluteResumePath = path.resolve(resumePath);
+  if (!fs.existsSync(absoluteResumePath)) {
+    throw new Error(`Resume not found at: ${absoluteResumePath}`);
   }
-  return null;
+  if (path.extname(absoluteResumePath).toLowerCase() === '.pdf') return absoluteResumePath;
+  if (path.extname(absoluteResumePath).toLowerCase() !== '.docx') {
+    throw new Error('Resume conversion supports only DOCX and PDF files.');
+  }
+
+  const absoluteOutputDir = path.resolve(outputDir);
+  fs.mkdirSync(absoluteOutputDir, { recursive: true });
+  execFileSync('libreoffice', [
+    '--headless',
+    '--convert-to',
+    'pdf',
+    '--outdir',
+    absoluteOutputDir,
+    absoluteResumePath,
+  ], { timeout: 60000, stdio: 'pipe' });
+
+  const pdfPath = path.join(
+    absoluteOutputDir,
+    `${path.basename(absoluteResumePath, path.extname(absoluteResumePath))}.pdf`,
+  );
+  if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
+    throw new Error(`LibreOffice did not create the expected PDF: ${pdfPath}`);
+  }
+  return pdfPath;
 }
 
 function trimText(text, maxChars) {
@@ -62,20 +82,36 @@ function trimText(text, maxChars) {
   return text.slice(0, maxChars) + '\n[...truncated]';
 }
 
-// ── PDF text extraction using pdfjs-dist (ESM via dynamic import) ─────────────
+// ── base resume text extraction ───────────────────────────────────────────────
 
-async function loadBaseResume() {
-  if (!fs.existsSync(RESUME_PATH)) throw new Error(`Resume not found at: ${RESUME_PATH}`);
-  const ext = path.extname(RESUME_PATH).toLowerCase();
-
-  if (ext === '.pdf') {
-    const buffer = fs.readFileSync(RESUME_PATH);
-    const parsed = await pdfParse(buffer);
-    if (!parsed.text || !parsed.text.trim()) throw new Error('PDF appears image-based. Use a selectable PDF.');
-    return parsed.text;
+async function loadBaseResume(resumePath = RESUME_PATH) {
+  const absoluteResumePath = path.resolve(resumePath);
+  if (!fs.existsSync(absoluteResumePath)) {
+    throw new Error(`Resume not found at: ${absoluteResumePath}`);
   }
 
-  return fs.readFileSync(RESUME_PATH, 'utf8');
+  const ext = path.extname(absoluteResumePath).toLowerCase();
+  let text;
+  if (ext === '.docx') {
+    const result = await mammoth.extractRawText({ path: absoluteResumePath });
+    text = result.value;
+  } else if (ext === '.pdf') {
+    const parser = new PDFParse({ data: fs.readFileSync(absoluteResumePath) });
+    try {
+      text = (await parser.getText()).text;
+    } finally {
+      await parser.destroy();
+    }
+  } else if (ext === '.txt') {
+    text = fs.readFileSync(absoluteResumePath, 'utf8');
+  } else {
+    throw new Error(`Unsupported resume format: ${ext || '[none]'}`);
+  }
+
+  if (!text || !text.trim()) {
+    throw new Error(`Resume contains no readable text: ${absoluteResumePath}`);
+  }
+  return text.trim();
 }
 
 // ── docx builder ──────────────────────────────────────────────────────────────
@@ -216,9 +252,9 @@ async function tailorResume(job) {
   const outPath  = await saveDocx(text, job);
 
   // attempt PDF conversion
-  const pdfPath = await convertToPdf(outPath);
+  const pdfPath = convertResumeToPdf(outPath);
 
   return { text, savedTo: outPath, pdfPath };
 }
 
-module.exports = { tailorResume };
+module.exports = { convertResumeToPdf, loadBaseResume, tailorResume };

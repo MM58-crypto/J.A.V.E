@@ -1488,5 +1488,50 @@
     "reasoning": "The candidate has a backend and AI-focused skill set with no experience in Flutter or mobile application development, failing to meet the core technical requirements for the role.",
     "status": "auto_skipped",
     "reason": ""
+  },
+  {
+    "date": "2026-08-22T10:26:54.215Z",
+    "title": "Junior Software Engineer",
+    "company": "PantherIQ",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/junior-software-engineer-at-pantheriq-4455013500",
+    "score": 95,
+    "matched": [
+      "Software Development",
+      "Back-End Web Development",
+      "APIs",
+      "Databases",
+      "Programming",
+      "Computer Science degree"
+    ],
+    "missing": [],
+    "reasoning": "The candidate is a perfect match, possessing relevant technical skills in backend development, AI frameworks, and is locally based in Riyadh with the required educational background.",
+    "status": "incomplete",
+    "reason": "max_steps_reached"
+  },
+  {
+    "date": "2026-08-22T10:26:56.881Z",
+    "title": "Senior Devops Engineer - GCP",
+    "company": "Halian | Managed Services, Recruitment Agency & Contract Staffing",
+    "location": "Dhahran, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/senior-devops-engineer-gcp-at-halian-managed-services-recruitment-agency-contract-staffing-4456609926",
+    "score": 40,
+    "matched": [
+      "Python",
+      "Docker",
+      "Git",
+      "Linux",
+      "REST APIs"
+    ],
+    "missing": [
+      "GCP",
+      "Terraform",
+      "CI/CD Pipelines",
+      "Infrastructure as Code",
+      "Senior Level DevOps experience"
+    ],
+    "reasoning": "The candidate is a junior software/AI engineer with no professional DevOps or GCP experience, falling short of both the seniority requirements and the core domain expertise required for this infrastructure-focused role.",
+    "status": "auto_skipped",
+    "reason": ""
   }
 ]

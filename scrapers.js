@@ -1,6 +1,6 @@
 const axios   = require('axios');
 const cheerio = require('cheerio');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const GEO_KSA  = '100459316';
 const LI_GUEST = 'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search';
@@ -72,16 +72,6 @@ async function scrapeLinkedIn(keyword) {
       if (title && company) jobs.push(makeJob(title, company, location, timeText, datetimeAttr, link, 'LinkedIn'));
     });
     return jobs;
-  } catch { return []; }
-}
-
-// ── LinkedIn npm package ──────────────────────────────────────────────────────
-
-async function scrapeLinkedInPackage(keyword) {
-  try {
-    const linkedIn = require('linkedin-jobs-api');
-    const results  = await linkedIn.query({ keyword, location: 'Saudi Arabia', dateSincePosted: '24hr', limit: '20', sortBy: 'recent' });
-    return results.map(r => makeJob(r.position || '', r.company || '', r.location || '', r.agoTime || '', '', r.jobUrl || '', 'LinkedIn'));
   } catch { return []; }
 }
 
@@ -191,11 +181,11 @@ async function getJobs(keyword, demo = false) {
   }
 
   process.stdout.write('  Searching LinkedIn...');
-  const [liGuest, liPkg] = await Promise.all([scrapeLinkedIn(keyword), scrapeLinkedInPackage(keyword)]);
+  const liGuest = await scrapeLinkedIn(keyword);
   process.stdout.write(' JSearch...\n');
   const jsearch = await scrapeJSearch(keyword);
 
-  const liAll = rankJobs([...liGuest, ...liPkg], keyword).filter((j, i, arr) =>
+  const liAll = rankJobs(liGuest, keyword).filter((j, i, arr) =>
     arr.findIndex(x => x.title === j.title && x.company === j.company) === i
   );
 

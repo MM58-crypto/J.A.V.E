@@ -1,284 +1,505 @@
 const puppeteer = require('puppeteer-extra');
-const Stealth   = require('puppeteer-extra-plugin-stealth');
-const readline  = require('readline');
-const path      = require('path');
-const fs        = require('fs');
-require('dotenv').config();
+const Stealth = require('puppeteer-extra-plugin-stealth');
+const readline = require('readline');
+const path = require('path');
+const fs = require('fs');
+require('dotenv').config({ quiet: true });
 
 puppeteer.use(Stealth());
 
-const CHROMIUM_PATH     = process.env.CHROMIUM_PATH     || '/usr/bin/chromium';
-const CHROMIUM_PROFILE  = process.env.CHROMIUM_PROFILE  || `${process.env.HOME}/.config/chromium`;
-const APPLY_DELAY_MS    = 2000;  // delay between actions — looks more human
-
-// ── inline question prompt ────────────────────────────────────────────────────
+const CHROMIUM_PATH = process.env.CHROMIUM_PATH || '/usr/bin/chromium';
+const CHROMIUM_PROFILE = process.env.CHROMIUM_PROFILE || `${process.env.HOME}/.config/chromium`;
+const APPLY_DELAY_MS = 1200;
+const MAX_STEPS = 10;
 
 function askUser(question) {
   return new Promise(resolve => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    rl.question(`\n  ❓ ${question}: `, ans => { rl.close(); resolve(ans.trim()); });
+    rl.question(`\n  ${question}: `, answer => {
+      rl.close();
+      resolve(answer.trim());
+    });
   });
 }
 
-// ── resolve a form field value from defaults ──────────────────────────────────
+function normalize(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}+]+/gu, ' ')
+    .trim();
+}
 
-function resolveField(label, defaults) {
-  const lower   = label.toLowerCase().trim();
-  const aliases = defaults.field_aliases || {};
+function getPathValue(object, dottedPath) {
+  return dottedPath.split('.').reduce((value, key) => value?.[key], object);
+}
 
-  // direct alias match
-  for (const [alias, key] of Object.entries(aliases)) {
-    if (lower.includes(alias)) {
-      // find value in nested defaults
-      for (const section of Object.values(defaults)) {
-        if (typeof section === 'object' && section[key] !== undefined) return String(section[key]);
-      }
-      if (defaults[key] !== undefined) return String(defaults[key]);
-    }
+function resolveField(label, profile) {
+  const normalizedLabel = normalize(label);
+  const aliases = Object.entries(profile.field_aliases || {})
+    .sort(([left], [right]) => right.length - left.length);
+
+  for (const [alias, dottedPath] of aliases) {
+    if (!normalizedLabel.includes(normalize(alias))) continue;
+
+    const value = getPathValue(profile, dottedPath);
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (Array.isArray(value)) return value.join(', ');
+    return String(value);
   }
+
   return null;
 }
 
-// ── delay helper ──────────────────────────────────────────────────────────────
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function loadProfile(profilePath = path.join(__dirname, 'defaults.json')) {
+  if (!fs.existsSync(profilePath)) {
+    throw new Error(`User profile not found: ${profilePath}`);
+  }
 
-// ── fill a single form step ───────────────────────────────────────────────────
+  const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+  if (!profile.personal || !profile.field_aliases) {
+    throw new Error('User profile must contain personal and field_aliases sections.');
+  }
+  return profile;
+}
 
-async function fillFormStep(page, defaults, resumePath) {
-  await delay(APPLY_DELAY_MS);
+async function getFormRoot(page) {
+  return await page.$('div[role="dialog"]') || page;
+}
 
-  // text inputs and textareas
-  const inputs = await page.$$('input[type="text"], input[type="number"], input[type="email"], input[type="tel"], textarea');
+async function inspectElement(page, element) {
+  return page.evaluate(el => {
+    const labelledBy = el.getAttribute('aria-labelledby');
+    const ariaLabel = labelledBy
+      ? labelledBy.split(/\s+/).map(id => document.getElementById(id)?.innerText || '').join(' ')
+      : '';
+    const container = el.closest('fieldset, .fb-dash-form-element, [data-test-form-element]');
+    const containerLabel = container?.querySelector('legend, .fb-dash-form-element__label')?.innerText || '';
+    const directLabel = el.labels?.[0]?.innerText || '';
+    const label = directLabel || ariaLabel || el.getAttribute('aria-label') || el.getAttribute('placeholder') || containerLabel;
+    const visible = !el.disabled && !el.readOnly && el.type !== 'hidden' && Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+
+    return {
+      label: label.trim(),
+      required: el.required || el.getAttribute('aria-required') === 'true',
+      visible,
+      value: el.value || '',
+      checked: Boolean(el.checked),
+      name: el.name || el.id || '',
+    };
+  }, element);
+}
+
+function createRecord(label, type, value, source, required = false) {
+  return {
+    key: `${type}:${normalize(label)}`,
+    label: label || type,
+    type,
+    value: String(value || ''),
+    source,
+    required,
+  };
+}
+
+async function fillTextFields(page, root, profile, ask) {
+  const records = [];
+  const inputs = await root.$$('input[type="text"], input[type="number"], input[type="email"], input[type="tel"], textarea');
+
   for (const input of inputs) {
-    const label = await page.evaluate(el => {
-      const id   = el.id;
-      const lbl  = id ? document.querySelector(`label[for="${id}"]`) : null;
-      const aria = el.getAttribute('aria-label') || el.getAttribute('placeholder') || '';
-      return lbl ? lbl.innerText.trim() : aria.trim();
-    }, input);
+    const field = await inspectElement(page, input);
+    if (!field.visible || !field.label) continue;
 
-    if (!label) continue;
+    if (field.value.trim()) {
+      records.push(createRecord(field.label, 'text', field.value, 'existing', field.required));
+      continue;
+    }
 
-    const existing = await page.evaluate(el => el.value, input);
-    if (existing && existing.trim().length > 0) continue; // already filled
+    let value = resolveField(field.label, profile);
+    let source = 'profile';
+    if (value === null) {
+      value = await ask(`Enter a value for "${field.label}"${field.required ? ' (required)' : ''}`);
+      source = value ? 'user' : 'unresolved';
+    }
 
-    const value = resolveField(label, defaults);
     if (value) {
       await input.click({ clickCount: 3 });
-      await input.type(value, { delay: 40 });
-    } else {
-      // unknown field — ask user
-      const answer = await askUser(`Unknown field "${label}"`);
-      await input.click({ clickCount: 3 });
-      await input.type(answer, { delay: 40 });
+      await input.type(value, { delay: 20 });
     }
-    await delay(300);
+    records.push(createRecord(field.label, 'text', value, source, field.required));
   }
 
-  // dropdowns (select elements)
-  const selects = await page.$$('select');
+  return records;
+}
+
+async function fillSelectFields(page, root, profile, ask) {
+  const records = [];
+  const selects = await root.$$('select');
+
   for (const select of selects) {
-    const label = await page.evaluate(el => {
-      const id  = el.id;
-      const lbl = id ? document.querySelector(`label[for="${id}"]`) : null;
-      return lbl ? lbl.innerText.trim() : el.getAttribute('aria-label') || '';
-    }, select);
+    const field = await inspectElement(page, select);
+    if (!field.visible) continue;
 
-    const value = resolveField(label, defaults);
-    if (value) {
-      // try to select matching option
-      await page.evaluate((el, val) => {
-        const opts = Array.from(el.options);
-        const match = opts.find(o => o.text.toLowerCase().includes(val.toLowerCase()));
-        if (match) el.value = match.value;
-      }, select, value);
-    } else if (label) {
-      const options = await page.evaluate(el => Array.from(el.options).map(o => o.text), select);
-      const answer  = await askUser(`Dropdown "${label}" — options: ${options.slice(0, 5).join(', ')}`);
-      await page.evaluate((el, val) => {
-        const match = Array.from(el.options).find(o => o.text.toLowerCase().includes(val.toLowerCase()));
-        if (match) el.value = match.value;
-      }, select, answer);
+    const options = await page.evaluate(el => Array.from(el.options).map(option => ({
+      value: option.value,
+      text: option.text.trim(),
+      selected: option.selected,
+      disabled: option.disabled,
+    })), select);
+    const selected = options.find(option => option.selected && option.value && !option.disabled);
+    if (selected) {
+      records.push(createRecord(field.label, 'select', selected.text, 'existing', field.required));
+      continue;
     }
-    await delay(300);
+
+    let requested = resolveField(field.label, profile);
+    let source = 'profile';
+    if (requested === null) {
+      const available = options.filter(option => option.value && !option.disabled).map(option => option.text);
+      requested = await ask(`Choose "${field.label}" from: ${available.join(', ')}`);
+      source = requested ? 'user' : 'unresolved';
+    }
+
+    const normalizedRequest = normalize(requested);
+    const available = options.filter(option => option.value && !option.disabled);
+    const match = available.find(option => normalize(option.text) === normalizedRequest)
+      || available.find(option => normalize(option.text).includes(normalizedRequest) || normalizedRequest.includes(normalize(option.text)));
+
+    if (match && normalizedRequest) {
+      await select.select(match.value);
+      records.push(createRecord(field.label, 'select', match.text, source, field.required));
+    } else {
+      records.push(createRecord(field.label, 'select', '', 'unresolved', field.required));
+    }
   }
 
-  // resume upload
-  const fileInputs = await page.$$('input[type="file"]');
-  for (const fi of fileInputs) {
-    if (resumePath && fs.existsSync(resumePath)) {
-      await fi.uploadFile(resumePath);
-      await delay(1000);
-    }
-  }
+  return records;
+}
 
-  // radio buttons — yes/no type
-  const radios = await page.$$('input[type="radio"]');
+async function radioMetadata(page, radio) {
+  return page.evaluate(el => {
+    const container = el.closest('fieldset, .fb-dash-form-element, [data-test-form-builder-radio-button-form-component]');
+    const question = container?.querySelector('legend, .fb-dash-form-element__label')?.innerText
+      || el.getAttribute('aria-label')
+      || 'Radio choice';
+    const option = el.labels?.[0]?.innerText || el.value || '';
+    return {
+      question: question.trim(),
+      option: option.trim(),
+      group: el.name || question.trim(),
+      checked: el.checked,
+      required: el.required || el.getAttribute('aria-required') === 'true',
+      visible: !el.disabled && Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
+    };
+  }, radio);
+}
+
+async function fillRadioFields(page, root, profile, ask) {
+  const records = [];
+  const radios = await root.$$('input[type="radio"]');
+  const groups = new Map();
+
   for (const radio of radios) {
-    const label = await page.evaluate(el => {
-      const id  = el.id;
-      const lbl = id ? document.querySelector(`label[for="${id}"]`) : null;
-      return lbl ? lbl.innerText.trim() : '';
-    }, radio);
+    const metadata = await radioMetadata(page, radio);
+    if (!metadata.visible) continue;
+    if (!groups.has(metadata.group)) groups.set(metadata.group, []);
+    groups.get(metadata.group).push({ radio, ...metadata });
+  }
 
-    const value = resolveField(label, defaults);
-    if (value && (value.toLowerCase() === 'yes' || value === 'true')) {
-      const isYes = label.toLowerCase().includes('yes');
-      if (isYes) await radio.click();
+  for (const options of groups.values()) {
+    const question = options[0].question;
+    const required = options.some(option => option.required);
+    const selected = options.find(option => option.checked);
+    if (selected) {
+      records.push(createRecord(question, 'radio', selected.option, 'existing', required));
+      continue;
     }
-    await delay(200);
+
+    let requested = resolveField(question, profile);
+    let source = 'profile';
+    if (requested === null) {
+      requested = await ask(`Choose "${question}" from: ${options.map(option => option.option).join(', ')}`);
+      source = requested ? 'user' : 'unresolved';
+    }
+
+    const normalizedRequest = normalize(requested);
+    const match = options.find(option => normalize(option.option) === normalizedRequest)
+      || options.find(option => normalize(option.option).includes(normalizedRequest));
+    if (match && normalizedRequest) await match.radio.click();
+
+    records.push(createRecord(question, 'radio', match?.option || '', match ? source : 'unresolved', required));
+  }
+
+  return records;
+}
+
+async function fillCheckboxFields(page, root, profile, ask) {
+  const records = [];
+  const checkboxes = await root.$$('input[type="checkbox"]');
+
+  for (const checkbox of checkboxes) {
+    const field = await inspectElement(page, checkbox);
+    if (!field.visible || !field.label) continue;
+
+    if (field.checked) {
+      records.push(createRecord(field.label, 'checkbox', 'Yes', 'existing', field.required));
+      continue;
+    }
+
+    let requested = resolveField(field.label, profile);
+    let source = 'profile';
+    if (requested === null) {
+      requested = await ask(`Select "${field.label}"? Enter yes or no`);
+      source = requested ? 'user' : 'unresolved';
+    }
+
+    const shouldCheck = ['yes', 'true', '1'].includes(normalize(requested));
+    if (shouldCheck) await checkbox.click();
+    records.push(createRecord(field.label, 'checkbox', shouldCheck ? 'Yes' : (field.required ? '' : 'No'), shouldCheck ? source : 'unresolved', field.required));
+  }
+
+  return records;
+}
+
+async function uploadResume(page, root, resumePath) {
+  const records = [];
+  const fileInputs = await root.$$('input[type="file"]');
+
+  for (const [index, fileInput] of fileInputs.entries()) {
+    const field = await inspectElement(page, fileInput);
+    const label = field.label || (fileInputs.length === 1 ? 'Resume' : `File upload ${index + 1}`);
+    const isResume = /resume|cv/i.test(label) || (fileInputs.length === 1 && !/cover letter/i.test(label));
+    if (!isResume) {
+      records.push(createRecord(label, 'file', '', 'unresolved', field.required));
+      continue;
+    }
+
+    await fileInput.uploadFile(resumePath);
+    records.push(createRecord(label, 'file', path.basename(resumePath), 'profile', field.required));
+  }
+
+  return records;
+}
+
+async function fillFormStep(page, profile, resumePath, options = {}) {
+  const ask = options.ask || askUser;
+  const delayMs = options.delayMs ?? APPLY_DELAY_MS;
+  if (delayMs) await delay(delayMs);
+
+  const root = await getFormRoot(page);
+  const fields = [
+    ...await fillTextFields(page, root, profile, ask),
+    ...await fillSelectFields(page, root, profile, ask),
+    ...await fillRadioFields(page, root, profile, ask),
+    ...await fillCheckboxFields(page, root, profile, ask),
+    ...await uploadResume(page, root, resumePath),
+  ];
+  const unresolvedRequired = fields.filter(field => field.required && !field.value);
+  return { fields, unresolvedRequired };
+}
+
+function mergeReviewFields(reviewFields, fields) {
+  for (const field of fields) reviewFields.set(field.key, field);
+}
+
+function printApplicationReview(job, reviewFields, resumePath, output = console.log) {
+  output('\n  Application review');
+  output(`  Job: ${job.title} at ${job.company}`);
+  for (const field of reviewFields.values()) {
+    output(`  ${field.label}: ${field.value || '[blank]'} (${field.source})`);
+  }
+  output(`  Resume: ${path.basename(resumePath)}`);
+  output('\n  Verify the open browser form. Nothing has been submitted.');
+}
+
+async function reviewAndConfirm(page, job, reviewFields, profile, resumePath, options = {}) {
+  const ask = options.ask || askUser;
+  const output = options.output || console.log;
+
+  while (true) {
+    printApplicationReview(job, reviewFields, resumePath, output);
+    const decision = normalize(await ask('Type SUBMIT to submit, EDIT to change the form in the browser, or CANCEL'));
+
+    if (decision === 'submit') return 'submit';
+    if (decision === 'cancel') return 'cancel';
+    if (decision !== 'edit') {
+      output('  Submission not confirmed. Enter SUBMIT, EDIT, or CANCEL.');
+      continue;
+    }
+
+    await ask('Edit the browser form, return to its final step, then press Enter to review again');
+    const refreshed = await fillFormStep(page, profile, resumePath, { ask, delayMs: 0 });
+    mergeReviewFields(reviewFields, refreshed.fields);
   }
 }
 
-// ── check for external redirect ───────────────────────────────────────────────
+async function findButton(page, patterns) {
+  const root = await getFormRoot(page);
+  const buttons = await root.$$('button');
+
+  for (const button of buttons) {
+    const details = await page.evaluate(el => ({
+      text: `${el.innerText || ''} ${el.getAttribute('aria-label') || ''}`.trim(),
+      available: !el.disabled && Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
+    }), button);
+    if (details.available && patterns.some(pattern => pattern.test(details.text))) return button;
+  }
+
+  return null;
+}
 
 async function isExternalRedirect(page) {
   const url = page.url();
-  return !url.includes('linkedin.com');
+  return !/^https?:\/\/([a-z0-9-]+\.)?linkedin\.com\//i.test(url);
 }
 
-// ── main apply function ───────────────────────────────────────────────────────
-
-async function applyToJob(job, resumePath) {
-  const browser = await puppeteer.launch({
-    executablePath:  CHROMIUM_PATH,
-    userDataDir:     CHROMIUM_PROFILE,
-    headless:        false,
-    defaultViewport: null,
-    ignoreDefaultArgs: ['--enable-automation'],
-    args: [
-      '--no-sandbox',
-      '--start-maximized',
-      '--disable-blink-features=AutomationControlled',
-      '--disable-infobars',
-      '--no-first-run',
-      '--no-default-browser-check',
-      '--disable-extensions-except',
-    ],
-  });
-
-  const page = await browser.newPage();
-
-  // mask automation fingerprints
-  await page.evaluateOnNewDocument(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    Object.defineProperty(navigator, 'plugins',   { get: () => [1, 2, 3] });
-    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-    window.chrome = { runtime: {} };
-  });
-
-  // set a real user agent
-  await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-
+async function navigateToJob(page, url) {
   try {
-    console.log(`\n  Opening: ${job.link}`);
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  } catch (error) {
+    if (error.name !== 'TimeoutError') throw error;
+    await page.waitForSelector('body', { timeout: 10000 });
+    if (page.url() === 'about:blank') throw error;
+  }
+  await page.waitForSelector('body', { timeout: 10000 });
+}
 
-    // use domcontentloaded — linkedin never fully reaches networkidle2
-    await page.goto(job.link, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await delay(3000); // let dynamic content render
-
-    // check for external redirect
-    if (await isExternalRedirect(page)) {
-      console.log('  skipping — external site.');
-      await browser.close();
-      return { status: 'skipped', reason: 'external_redirect' };
-    }
-
-    // find Easy Apply button — try multiple selectors in order
-    const EASY_APPLY_SELECTORS = [
-      'button[aria-label*="Easy Apply"]',
-      'button.jobs-apply-button',
-      '.jobs-apply-button--top-card button',
-      'button[data-control-name="jobdetails_topcard_inapply"]',
-      '.jobs-s-apply button',
-      'button:has-text("Easy Apply")',
-    ];
-
-    let easyApplyBtn = null;
-    for (const selector of EASY_APPLY_SELECTORS) {
-      try {
-        await page.waitForSelector(selector, { timeout: 5000 });
-        easyApplyBtn = await page.$(selector);
-        if (easyApplyBtn) break;
-      } catch { continue; }
-    }
-
-    // fallback — find any button with Easy Apply text
-    if (!easyApplyBtn) {
-      easyApplyBtn = await page.evaluateHandle(() => {
-        const buttons = Array.from(document.querySelectorAll('button'));
-        return buttons.find(b => b.innerText.trim().includes('Easy Apply')) || null;
-      });
-      const isValid = await page.evaluate(el => el !== null && el.tagName === 'BUTTON', easyApplyBtn);
-      if (!isValid) easyApplyBtn = null;
-    }
-
-    if (!easyApplyBtn) {
-      console.log('  skipping — no Easy Apply button found.');
-      await browser.close();
-      return { status: 'skipped', reason: 'no_easy_apply' };
-    }
-
-    await easyApplyBtn.click();
-    await delay(APPLY_DELAY_MS);
-
-    // multi-step form loop
-    let step = 0;
-    const MAX_STEPS = 10;
-
-    while (step < MAX_STEPS) {
-      step++;
-
-      // check for external redirect after each step
-      if (await isExternalRedirect(page)) {
-        console.log('  ⚠  Redirected to external site — skipping.');
-        await browser.close();
-        return { status: 'skipped', reason: 'external_redirect_mid_apply' };
-      }
-
-      await fillFormStep(page, require('./defaults.json'), resumePath);
-      await delay(APPLY_DELAY_MS);
-
-      // look for submit button
-      const submitBtn = await page.evaluateHandle(() => {
-        const buttons = Array.from(document.querySelectorAll('button'));
-        return buttons.find(b => /submit application/i.test(b.innerText) || b.getAttribute('aria-label')?.toLowerCase().includes('submit')) || null;
-      });
-      const submitValid = await page.evaluate(el => el !== null && el.tagName === 'BUTTON', submitBtn);
-      if (submitValid) {
-        await submitBtn.click();
-        await delay(2000);
-        console.log('  application submitted.');
-        await browser.close();
-        return { status: 'applied' };
-      }
-
-      // look for next/continue button
-      const nextBtn = await page.evaluateHandle(() => {
-        const buttons = Array.from(document.querySelectorAll('button'));
-        return buttons.find(b => /next|continue/i.test(b.innerText) || /next|continue/i.test(b.getAttribute('aria-label') || '')) || null;
-      });
-      const nextValid = await page.evaluate(el => el !== null && el.tagName === 'BUTTON', nextBtn);
-      if (nextValid) {
-        await nextBtn.click();
-        await delay(APPLY_DELAY_MS);
-        continue;
-      }
-
-      // no next, no submit — stuck
-      console.log('  ⚠  Could not find next or submit button — pausing for manual intervention.');
-      await askUser('Press Enter when done to continue or type "skip" to skip');
-      break;
-    }
-
-    await browser.close();
-    return { status: 'incomplete', reason: 'max_steps_reached' };
-
-  } catch (err) {
-    await browser.close();
-    return { status: 'error', reason: err.message };
+async function waitForSubmissionConfirmation(page) {
+  try {
+    await page.waitForFunction(() => /application (was )?(sent|submitted)|your application was sent/i.test(document.body.innerText), { timeout: 10000 });
+    return true;
+  } catch {
+    return false;
   }
 }
 
-module.exports = { applyToJob };
+async function submitReviewedApplication(page, job, reviewFields, profile, resumePath, options = {}) {
+  const decision = await reviewAndConfirm(page, job, reviewFields, profile, resumePath, options);
+  if (decision === 'cancel') {
+    return { status: 'cancelled', reason: 'user_cancelled_before_submission', reviewed: true };
+  }
+
+  const submitButton = await findButton(page, [/submit application/i, /^submit$/i]);
+  if (!submitButton) {
+    return { status: 'incomplete', reason: 'submit_button_missing_after_review', reviewed: true };
+  }
+  await submitButton.click();
+  const confirmed = await waitForSubmissionConfirmation(page);
+  return confirmed
+    ? { status: 'applied', reviewed: true }
+    : { status: 'submitted_unconfirmed', reason: 'submission_confirmation_not_detected', reviewed: true };
+}
+
+async function applyToJob(job, resumePath, options = {}) {
+  const absoluteResumePath = path.resolve(resumePath);
+  if (!fs.existsSync(absoluteResumePath)) {
+    return { status: 'error', reason: `resume_not_found:${absoluteResumePath}` };
+  }
+  if (path.extname(absoluteResumePath).toLowerCase() !== '.pdf') {
+    return { status: 'error', reason: 'resume_must_be_pdf' };
+  }
+
+  let profile;
+  try {
+    profile = options.profile || loadProfile();
+  } catch (error) {
+    return { status: 'error', reason: error.message };
+  }
+
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      executablePath: CHROMIUM_PATH,
+      userDataDir: CHROMIUM_PROFILE,
+      headless: false,
+      defaultViewport: null,
+      ignoreDefaultArgs: ['--enable-automation'],
+      args: [
+        '--no-sandbox',
+        '--start-maximized',
+        '--disable-blink-features=AutomationControlled',
+        '--no-first-run',
+        '--no-default-browser-check',
+      ],
+    });
+    const page = await browser.newPage();
+    const reviewFields = new Map();
+    console.log(`\n  Opening: ${job.link}`);
+    await navigateToJob(page, job.link);
+    await delay(APPLY_DELAY_MS);
+
+    if (await isExternalRedirect(page)) {
+      return { status: 'skipped', reason: 'external_redirect' };
+    }
+
+    const easyApplyButton = await findButton(page, [/easy apply/i]);
+    if (!easyApplyButton) {
+      return { status: 'skipped', reason: 'no_easy_apply' };
+    }
+
+    await easyApplyButton.click();
+    await page.waitForSelector('div[role="dialog"]', { timeout: 10000 });
+
+    for (let step = 1; step <= MAX_STEPS; step++) {
+      if (await isExternalRedirect(page)) {
+        return { status: 'skipped', reason: 'external_redirect_mid_apply' };
+      }
+
+      const filled = await fillFormStep(page, profile, absoluteResumePath, options);
+      mergeReviewFields(reviewFields, filled.fields);
+
+      if (filled.unresolvedRequired.length) {
+        const labels = filled.unresolvedRequired.map(field => field.label).join(', ');
+        await (options.ask || askUser)(`Required fields still need attention in the browser: ${labels}. Press Enter when complete`);
+        const refreshed = await fillFormStep(page, profile, absoluteResumePath, { ...options, delayMs: 0 });
+        mergeReviewFields(reviewFields, refreshed.fields);
+        if (refreshed.unresolvedRequired.length) {
+          return { status: 'incomplete', reason: 'required_fields_unresolved' };
+        }
+      }
+
+      const submitButton = await findButton(page, [/submit application/i, /^submit$/i]);
+      if (submitButton) {
+        // Keep the browser open while the user reviews and confirms.
+        return await submitReviewedApplication(
+          page,
+          job,
+          reviewFields,
+          profile,
+          absoluteResumePath,
+          options,
+        );
+      }
+
+      const nextButton = await findButton(page, [/^next$/i, /^continue$/i, /review/i]);
+      if (!nextButton) {
+        const action = normalize(await (options.ask || askUser)('No Next or Submit button was found. Enter RETRY after manual correction or SKIP'));
+        if (action !== 'retry') return { status: 'incomplete', reason: 'form_navigation_stalled' };
+        continue;
+      }
+
+      await nextButton.click();
+      await delay(APPLY_DELAY_MS);
+    }
+
+    return { status: 'incomplete', reason: 'max_steps_reached' };
+  } catch (error) {
+    return { status: 'error', reason: error.message };
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
+}
+
+module.exports = {
+  applyToJob,
+  fillFormStep,
+  loadProfile,
+  mergeReviewFields,
+  printApplicationReview,
+  resolveField,
+  reviewAndConfirm,
+  submitReviewedApplication,
+};

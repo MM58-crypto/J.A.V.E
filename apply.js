@@ -6,9 +6,9 @@ const fs         = require('fs');
 const path       = require('path');
 const { getJobs, fetchDescription } = require('./scrapers');
 const { evaluateJob }  = require('./evaluator');
-const { tailorResume } = require('./tailor');
-const { applyToJob }   = require('./applier');
-require('dotenv').config();
+const { tailorResume, convertResumeToPdf } = require('./tailor');
+const { applyToJob } = require('./applier');
+require('dotenv').config({ quiet: true });
 
 const MAX_JOBS      = 15;
 const LOG_FILE      = './applications.json';
@@ -29,6 +29,7 @@ function logApplication(job, evaluation, result) {
     reasoning: evaluation.reasoning,
     status:    result.status,
     reason:    result.reason || '',
+    reviewed:  Boolean(result.reviewed),
   };
 
   let log = [];
@@ -71,7 +72,7 @@ function printEvaluation(job, ev) {
   if (ev.missing.length)    console.log(chalk.red(`  ✗ ${ev.missing.slice(0, 3).join('  ✗ ')}`));
   if (ev.red_lines.length)  console.log(chalk.red(`  ⚠  ${ev.red_lines.join(', ')}`));
 
-  console.log(chalk.dim('\n  [Y] Apply   [N] Skip   [V] View JD   [Q] Quit\n'));
+  console.log(chalk.dim('\n  [Y] Prepare application   [N] Skip   [V] View JD   [Q] Quit\n'));
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
@@ -97,7 +98,8 @@ async function main() {
   const batch = jobs.slice(0, MAX_JOBS);
   console.log(chalk.dim(`  Found ${jobs.length} jobs — processing up to ${batch.length}.\n`));
 
-  let applied = 0;
+  let submitted = 0;
+  let confirmed = 0;
   let skipped = 0;
 
   for (const job of batch) {
@@ -142,17 +144,29 @@ async function main() {
       continue;
     }
 
-    // approved — tailor resume
+    // approved — tailor and convert resume
     console.log(chalk.dim('\n  Tailoring resume...'));
-    let resumePath = null;
+    let resumePath;
     try {
       const { savedTo, pdfPath } = await tailorResume(job);
-      resumePath = pdfPath ? path.resolve(pdfPath) : path.resolve(savedTo);
+      resumePath = path.resolve(pdfPath);
       console.log(chalk.green(`  Resume saved: ${savedTo}`));
-      if (pdfPath) console.log(chalk.green(`  PDF ready:   ${pdfPath}`));
-    } catch (err) {
-      console.log(chalk.yellow(`  Tailor failed (${err.message}) — using base resume.`));
-      resumePath = path.resolve(process.env.RESUME_PATH || './base_resume.pdf');
+      console.log(chalk.green(`  PDF ready:   ${pdfPath}`));
+    } catch (error) {
+      console.log(chalk.yellow(`  Tailoring failed (${error.message}) — converting the base resume.`));
+      try {
+        resumePath = convertResumeToPdf(
+          path.resolve(process.env.RESUME_PATH || './my_resume.docx'),
+          path.resolve(process.env.OUTPUT_DIR || './output'),
+        );
+        console.log(chalk.green(`  Base resume PDF ready: ${resumePath}`));
+      } catch (conversionError) {
+        const result = { status: 'error', reason: conversionError.message };
+        logApplication(job, ev, result);
+        console.log(chalk.red(`  Resume preparation failed: ${conversionError.message}`));
+        skipped++;
+        continue;
+      }
     }
 
     // apply
@@ -162,15 +176,19 @@ async function main() {
     logApplication(job, ev, result);
 
     if (result.status === 'applied') {
-      console.log(chalk.greenBright(`  ✓ Applied to ${job.title} at ${job.company}`));
-      applied++;
+      console.log(chalk.greenBright(`  Application confirmed for ${job.title} at ${job.company}`));
+      submitted++;
+      confirmed++;
+    } else if (result.status === 'submitted_unconfirmed') {
+      console.log(chalk.yellow(`  Submitted, but LinkedIn confirmation was not detected: ${job.title} at ${job.company}`));
+      submitted++;
     } else {
-      console.log(chalk.yellow(`  ⚠  ${result.status}: ${result.reason}`));
+      console.log(chalk.yellow(`  ${result.status}: ${result.reason}`));
       skipped++;
     }
   }
 
-  console.log(chalk.blueBright.bold(`\n  Session complete — Applied: ${applied}  Skipped: ${skipped}\n`));
+  console.log(chalk.blueBright.bold(`\n  Session complete — Submitted: ${submitted}  Confirmed: ${confirmed}  Skipped/cancelled: ${skipped}\n`));
 }
 
 main().catch(err => {

@@ -1,8 +1,9 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-require('dotenv').config();
+const profile = require('./defaults.json');
+require('dotenv').config({ quiet: true });
 
 const GEMINI_MODEL = 'gemini-3.1-flash-lite';
-const MAX_JD_CHARS = 2500;
+const MAX_JD_CHARS = 8000;
 
 const SYSTEM_PROMPT = `
 You are a job application evaluator.
@@ -22,18 +23,16 @@ Red lines that must trigger skip regardless of score:
 - Role is completely outside candidate's domain
 `.trim();
 
-const CANDIDATE_PROFILE = `
-Name: Software Engineer
-Experience: 2 years
-Skills: Python, JavaScript, Node.js, Django,  Docker, Git, Linux, AWS,
-        REST APIs, SQL (PostgreSQL, MySQL), Qdrant, Weaviate, Haystack,
-        LangChain, LangGraph, Gemini API, OpenAI API, RAG pipelines,
-        Microservices, Unit Testing
-Education: B.Sc. Computer Science (Software Engineering), 2024
-Languages: Arabic (Native), English (IELTS 8.0)
-Location: Riyadh, Saudi Arabia
-Target roles: Software Engineer, AI Engineer, Backend Engineer, Full Stack Engineer
-`.trim();
+const CANDIDATE_PROFILE = [
+  `Name: ${profile.personal.full_name}`,
+  `Headline: ${profile.candidate.headline}`,
+  `Experience: ${profile.candidate.years_experience} years`,
+  `Skills: ${profile.candidate.skills.join(', ')}`,
+  `Education: ${profile.candidate.education}`,
+  `Languages: ${profile.candidate.languages.join(', ')}`,
+  `Location: ${profile.personal.location}`,
+  `Target roles: ${profile.candidate.target_roles.join(', ')}`,
+].join('\n');
 
 function trimJD(text) {
   if (!text || text.length <= MAX_JD_CHARS) return text;
