@@ -402,5 +402,34 @@
     "status": "auto_skipped",
     "reason": "",
     "reviewed": false
+  },
+  {
+    "date": "2026-08-31T18:36:08.405Z",
+    "title": "Software Engineer",
+    "company": "Lazem لازم",
+    "location": "Riyadh, Saudi Arabia",
+    "link": "https://sa.linkedin.com/jobs/view/software-engineer-at-lazem-%D9%84%D8%A7%D8%B2%D9%85-4458844694",
+    "score": 90,
+    "matched": [
+      "JavaScript",
+      "React",
+      "Node.js",
+      "REST APIs",
+      "Git",
+      "SQL databases",
+      "3 years experience"
+    ],
+    "missing": [
+      "Google Cloud Platform (GCP)",
+      "Microsoft 365 / Power Platform"
+    ],
+    "reasoning": "The candidate's technical stack aligns well with the preferred technologies, and their 3 years of experience fits perfectly within the required range.",
+    "status": "error",
+    "reason": "Waiting for selector `div[role=\"dialog\"]` failed",
+    "reviewed": false,
+    "resume_profile": "swe",
+    "resume_selection_confidence": 1,
+    "resume_selection_reason": "The job description emphasizes full-stack web development, API integration, and standard software engineering practices, which aligns perfectly with the Software Engineer profile.",
+    "resume_selection_method": "gemini"
   }
 ]
