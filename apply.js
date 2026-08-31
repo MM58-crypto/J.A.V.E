@@ -6,7 +6,7 @@ const fs         = require('fs');
 const path       = require('path');
 const { getJobs, fetchDescription } = require('./scrapers');
 const { evaluateJob }  = require('./evaluator');
-const { tailorResume, convertResumeToPdf } = require('./tailor');
+const { tailorResume } = require('./tailor');
 const { applyToJob } = require('./applier');
 const {
   loadResumeConfig,
@@ -32,6 +32,7 @@ function logApplication(job, evaluation, result, resumeSelection = null) {
     matched:   evaluation.matched,
     missing:   evaluation.missing,
     reasoning: evaluation.reasoning,
+    analysis_method: evaluation.analysis_method || 'unknown',
     status:    result.status,
     reason:    result.reason || '',
     reviewed:  Boolean(result.reviewed),
@@ -192,20 +193,11 @@ async function main() {
       console.log(chalk.green(`  Resume saved: ${savedTo}`));
       console.log(chalk.green(`  PDF ready:   ${pdfPath}`));
     } catch (error) {
-      console.log(chalk.yellow(`  Tailoring failed (${error.message}) — converting the base resume.`));
-      try {
-        resumePath = convertResumeToPdf(
-          resumeSelection.profile.path,
-          path.resolve(process.env.OUTPUT_DIR || './output'),
-        );
-        console.log(chalk.green(`  Base resume PDF ready: ${resumePath}`));
-      } catch (conversionError) {
-        const result = { status: 'error', reason: conversionError.message };
-        logApplication(job, ev, result, resumeSelection);
-        console.log(chalk.red(`  Resume preparation failed: ${conversionError.message}`));
-        skipped++;
-        continue;
-      }
+      const result = { status: 'error', reason: `resume_preparation_failed:${error.message}` };
+      logApplication(job, ev, result, resumeSelection);
+      console.log(chalk.red(`  Resume preparation failed: ${error.message}`));
+      skipped++;
+      continue;
     }
 
     // apply

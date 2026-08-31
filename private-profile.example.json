@@ -1,53 +1,16 @@
 {
   "personal": {
-    "first_name": "John",
-    "last_name": "Doe",
-    "full_name": "John Doe",
-    "email": "jone.doe999@example.com",
-    "phone": "+966 5XXXXXXX",
-    "phone_country_code": "+966",
-    "location": "somewhere, someland",
-    "city": "somewhere",
-    "country": "someland",
-    "linkedin": "https://linkedin.com/in/mohd-magdi",
-    "github": "https://github.com/MM58-crypto"
-  },
-  "candidate": {
-    "headline": "Software Engineer",
-    "years_experience": 3,
-    "education": "Bachelor of Computer Science, Major in Software Engineering",
-    "skills": [
-      "Python",
-      "JavaScript",
-      "C++",
-      "Django",
-      "React",
-      "Node.js",
-      "FastAPI",
-      "PostgreSQL",
-      "MySQL",
-      "SQLite",
-      "Git",
-      "Docker",
-      "Linux",
-      "Bash",
-      "AWS",
-      "RESTful APIs",
-      "Qdrant",
-      "Weaviate",
-      "Haystack",
-      "LLM APIs"
-    ],
-    "languages": [
-      "Arabic (Native)",
-      "English (Fluent - IELTS: 8.0)"
-    ],
-    "target_roles": [
-      "Software Engineer",
-      "AI Engineer",
-      "Backend Engineer",
-      "Full Stack Engineer"
-    ]
+    "first_name": "YOUR_FIRST_NAME",
+    "last_name": "YOUR_LAST_NAME",
+    "full_name": "YOUR_FULL_NAME",
+    "email": "you@example.com",
+    "phone": "+000000000000",
+    "phone_country_code": "+000",
+    "location": "City, Country",
+    "city": "City",
+    "country": "Country",
+    "linkedin": "https://www.linkedin.com/in/your-profile",
+    "github": "https://github.com/your-profile"
   },
   "application": {
     "authorized_to_work": null,

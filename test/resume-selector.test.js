@@ -62,40 +62,14 @@ test('AI-heavy description overrides a broad Software Engineer title', () => {
   assert.equal(selection.profile.id, 'ai');
 });
 
-test('validated semantic classifier selection is used', async () => {
-  const selection = await selectResume({
-    title: 'Applied Intelligence Developer',
-    description: 'Develop production machine intelligence systems.',
-  }, {
-    config,
-    classifier: async () => ({
-      resumeId: 'ai',
-      confidence: 0.91,
-      reason: 'The role primarily develops applied AI systems.',
-    }),
-  });
-
-  assert.equal(selection.profile.id, 'ai');
-  assert.equal(selection.confidence, 0.91);
-  assert.equal(selection.method, 'gemini');
-});
-
-test('unknown classifier profile falls back to configured signals', async () => {
-  const selection = await selectResume({
+test('public selector uses deterministic local signals', () => {
+  const selection = selectResume({
     title: 'Help Desk Technician',
     description: 'Resolve Active Directory and Microsoft 365 support tickets.',
-  }, {
-    config,
-    classifier: async () => ({
-      resumeId: 'invented-profile',
-      confidence: 0.99,
-      reason: 'Invalid model response.',
-    }),
-  });
+  }, { config });
 
   assert.equal(selection.profile.id, 'it');
   assert.equal(selection.method, 'signals');
-  assert.match(selection.reason, /configured signals were used/i);
 });
 
 test('manual selection replaces the recommendation', () => {

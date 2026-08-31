@@ -1,0 +1,18 @@
+{
+  "headline": "Software Engineer",
+  "years_experience": 3,
+  "education": "Bachelor's degree in Computer Science",
+  "skills": [
+    "JavaScript",
+    "Node.js",
+    "React",
+    "PostgreSQL"
+  ],
+  "languages": [
+    "English"
+  ],
+  "target_roles": [
+    "Software Engineer",
+    "Backend Engineer"
+  ]
+}

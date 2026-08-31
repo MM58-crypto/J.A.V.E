@@ -3,6 +3,8 @@ const Stealth = require('puppeteer-extra-plugin-stealth');
 const readline = require('readline');
 const path = require('path');
 const fs = require('fs');
+const { loadPrivateProfile } = require('./private-profile');
+const { loadCareerProfile } = require('./career-profile');
 require('dotenv').config({ quiet: true });
 
 puppeteer.use(Stealth());
@@ -55,16 +57,11 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function loadProfile(profilePath = path.join(__dirname, 'defaults.json')) {
-  if (!fs.existsSync(profilePath)) {
-    throw new Error(`User profile not found: ${profilePath}`);
-  }
-
-  const profile = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
-  if (!profile.personal || !profile.field_aliases) {
-    throw new Error('User profile must contain personal and field_aliases sections.');
-  }
-  return profile;
+function loadApplicationProfile() {
+  return {
+    ...loadPrivateProfile(),
+    candidate: loadCareerProfile(),
+  };
 }
 
 async function getFormRoot(page) {
@@ -404,7 +401,7 @@ async function applyToJob(job, resumePath, options = {}) {
 
   let profile;
   try {
-    profile = options.profile || loadProfile();
+    profile = options.profile || loadApplicationProfile();
   } catch (error) {
     return { status: 'error', reason: error.message };
   }
@@ -496,7 +493,7 @@ async function applyToJob(job, resumePath, options = {}) {
 module.exports = {
   applyToJob,
   fillFormStep,
-  loadProfile,
+  loadApplicationProfile,
   mergeReviewFields,
   printApplicationReview,
   resolveField,

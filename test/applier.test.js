@@ -4,7 +4,7 @@ const path = require('node:path');
 const puppeteer = require('puppeteer-extra');
 const {
   fillFormStep,
-  loadProfile,
+  loadApplicationProfile,
   mergeReviewFields,
   resolveField,
   submitReviewedApplication,
@@ -27,7 +27,7 @@ async function openFixture() {
 }
 
 async function fillFixture(page) {
-  const profile = loadProfile();
+  const profile = loadApplicationProfile();
   const answers = question => {
     if (question.includes('Portfolio note')) return 'Portfolio available on request';
     if (question.includes('authorized to work')) return 'Yes';
@@ -39,10 +39,11 @@ async function fillFixture(page) {
 }
 
 test('profile aliases resolve specific fields before general aliases', () => {
-  const profile = loadProfile();
+  const profile = loadApplicationProfile();
   assert.equal(resolveField('First name', profile), 'John');
   assert.equal(resolveField('Last name', profile), 'Doe');
   assert.equal(resolveField('Phone country code', profile), '+966');
+  assert.equal(resolveField('Years of experience', profile), '3');
   assert.equal(resolveField('Unknown custom question', profile), null);
 });
 
@@ -70,7 +71,7 @@ test('declining a required checkbox blocks form progression', async t => {
   const { browser, page } = await openFixture();
   t.after(() => browser.close());
 
-  const profile = loadProfile();
+  const profile = loadApplicationProfile();
   const result = await fillFormStep(page, profile, resumePath, {
     ask: question => {
       if (question.includes('Portfolio note')) return '';

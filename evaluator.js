@@ -1,74 +1,150 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const profile = require('./defaults.json');
-require('dotenv').config({ quiet: true });
+const { loadCareerProfile } = require('./career-profile');
+const {
+  SYSTEM_PROMPT,
+  analyzeJobRequirements,
+  buildJobAnalysisPrompt,
+  normalizeJobAnalysis,
+  trimJobDescription,
+} = require('./job-analyzer');
 
-const GEMINI_MODEL = 'gemini-3.1-flash-lite';
-const MAX_JD_CHARS = 8000;
-
-const SYSTEM_PROMPT = `
-You are a job application evaluator.
-Given a job description and a candidate profile, score the match from 0 to 100.
-Return ONLY valid JSON with no markdown fences or commentary.
-Format:
-{
-  "score": <0-100>,
-  "verdict": "<apply|skip>",
-  "matched": ["skill1", "skill2"],
-  "missing": ["skill1", "skill2"],
-  "red_lines": ["reason if any"],
-  "reasoning": "<one sentence>"
-}
-Red lines that must trigger skip regardless of score:
-- Required years of experience exceeds candidate years by more than 2
-- Role is completely outside candidate's domain
-`.trim();
-
-const CANDIDATE_PROFILE = [
-  `Name: ${profile.personal.full_name}`,
-  `Headline: ${profile.candidate.headline}`,
-  `Experience: ${profile.candidate.years_experience} years`,
-  `Skills: ${profile.candidate.skills.join(', ')}`,
-  `Education: ${profile.candidate.education}`,
-  `Languages: ${profile.candidate.languages.join(', ')}`,
-  `Location: ${profile.personal.location}`,
-  `Target roles: ${profile.candidate.target_roles.join(', ')}`,
-].join('\n');
-
-function trimJD(text) {
-  if (!text || text.length <= MAX_JD_CHARS) return text;
-  return text.slice(0, MAX_JD_CHARS) + '\n[...truncated]';
+function normalizeTerm(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9+#]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-async function evaluateJob(job) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set in .env');
+function extractMinimumYears(description) {
+  const matches = [...String(description || '').matchAll(/(\d{1,2})\s*\+?\s*(?:years?|yrs?)/gi)]
+    .map(match => Number(match[1]))
+    .filter(years => years <= 50);
+  return matches.length ? Math.max(...matches) : null;
+}
 
-  const jd = trimJD(job.description || '');
+function analyzeLocally(job, careerProfile) {
+  const haystack = normalizeTerm(`${job.title || ''} ${job.description || ''}`);
+  const requiredSkills = careerProfile.skills.filter(skill => {
+    const term = normalizeTerm(skill);
+    return term && ` ${haystack} `.includes(` ${term} `);
+  });
+  return {
+    required_skills: requiredSkills,
+    preferred_skills: [],
+    minimum_years: extractMinimumYears(job.description),
+    role_domain: String(job.title || 'unknown'),
+    seniority: 'unknown',
+    summary: 'Requirements were extracted locally because model analysis was unavailable.',
+  };
+}
+
+function termMatchesSkill(term, skill) {
+  const left = normalizeTerm(term);
+  const right = normalizeTerm(skill);
+  return Boolean(left && right && (left === right || left.includes(right) || right.includes(left)));
+}
+
+function matchSkills(requirements, candidateSkills) {
+  return requirements.filter(requirement =>
+    candidateSkills.some(skill => termMatchesSkill(requirement, skill)));
+}
+
+function tokenOverlap(left, right) {
+  const ignored = new Set(['and', 'engineer', 'engineering', 'developer', 'specialist']);
+  const leftTokens = new Set(normalizeTerm(left).split(' ').filter(token => token && !ignored.has(token)));
+  const rightTokens = new Set(normalizeTerm(right).split(' ').filter(token => token && !ignored.has(token)));
+  if (!leftTokens.size || !rightTokens.size) return 0;
+  const common = [...leftTokens].filter(token => rightTokens.has(token)).length;
+  return common / Math.max(leftTokens.size, rightTokens.size);
+}
+
+function evaluateCandidate(job, analysis, careerProfile) {
+  const required = analysis.required_skills;
+  const preferred = analysis.preferred_skills;
+  const matchedRequired = matchSkills(required, careerProfile.skills);
+  const matchedPreferred = matchSkills(preferred, careerProfile.skills);
+  const missing = required.filter(skill => !matchedRequired.includes(skill));
+
+  const requiredScore = required.length ? (matchedRequired.length / required.length) * 55 : 35;
+  const preferredScore = preferred.length ? (matchedPreferred.length / preferred.length) * 10 : 5;
+  const roleFit = Math.max(...careerProfile.target_roles.map(role => tokenOverlap(job.title, role)), 0);
+  const roleScore = roleFit * 20;
+
+  const experienceGap = analysis.minimum_years === null
+    ? 0
+    : Math.max(0, analysis.minimum_years - careerProfile.years_experience);
+  const experienceScore = analysis.minimum_years === null
+    ? 15
+    : Math.max(0, 15 - (experienceGap * 5));
+
+  const redLines = [];
+  if (experienceGap > 2) {
+    redLines.push(
+      `Requires ${analysis.minimum_years} years; candidate profile has ${careerProfile.years_experience}.`,
+    );
+  }
+  if (roleFit === 0 && matchedRequired.length === 0 && required.length > 0) {
+    redLines.push('Role is outside the configured target roles and matched skills.');
+  }
+
+  const score = Math.max(0, Math.min(100, Math.round(
+    requiredScore + preferredScore + roleScore + experienceScore,
+  )));
+  const matched = [...new Set([...matchedRequired, ...matchedPreferred])];
+  const verdict = redLines.length || score < 50 ? 'skip' : 'apply';
+  const reasoning = `${matched.length} requirement${matched.length === 1 ? '' : 's'} matched; `
+    + `${missing.length} required skill${missing.length === 1 ? '' : 's'} missing; `
+    + `local role fit ${Math.round(roleFit * 100)}%.`;
+
+  return {
+    score,
+    verdict,
+    matched,
+    missing,
+    red_lines: redLines,
+    reasoning,
+  };
+}
+
+async function evaluateJob(job, options = {}) {
+  const jd = trimJobDescription(job.description);
   if (!jd || jd.length < 50) {
-    return { score: 0, verdict: 'skip', matched: [], missing: [], red_lines: ['No description available'], reasoning: 'Cannot evaluate without a job description.' };
+    return {
+      score: 0,
+      verdict: 'skip',
+      matched: [],
+      missing: [],
+      red_lines: ['No description available'],
+      reasoning: 'Cannot evaluate without a job description.',
+      analysis_method: 'none',
+    };
   }
 
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: GEMINI_MODEL, systemInstruction: SYSTEM_PROMPT });
-
-  const prompt = `
-JOB TITLE: ${job.title}
-COMPANY: ${job.company}
-
-JOB DESCRIPTION:
-${jd}
-
-CANDIDATE PROFILE:
-${CANDIDATE_PROFILE}
-`.trim();
-
-  const result = await model.generateContent(prompt);
-  const raw    = result.response.text().replace(/```json|```/g, '').trim();
-
+  const careerProfile = options.careerProfile || loadCareerProfile();
+  let analysis;
+  let method;
   try {
-    return JSON.parse(raw);
+    ({ analysis, method } = await analyzeJobRequirements(job, {
+      generateContent: options.generateContent,
+    }));
   } catch {
-    return { score: 0, verdict: 'skip', matched: [], missing: [], red_lines: ['Parse error'], reasoning: raw.slice(0, 100) };
+    analysis = normalizeJobAnalysis(analyzeLocally(job, careerProfile));
+    method = 'local';
   }
+
+  return {
+    ...evaluateCandidate(job, analysis, careerProfile),
+    analysis_method: method,
+  };
 }
 
-module.exports = { evaluateJob };
+module.exports = {
+  SYSTEM_PROMPT,
+  analyzeJobRequirements,
+  buildJobAnalysisPrompt,
+  evaluateCandidate,
+  evaluateJob,
+  normalizeJobAnalysis,
+};

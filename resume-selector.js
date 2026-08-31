@@ -1,24 +1,7 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
-require('dotenv').config({ quiet: true });
 
 const CONFIG_PATH = path.join(__dirname, 'resumes.json');
-const GEMINI_MODEL = 'gemini-3.1-flash-lite';
-const MAX_JD_CHARS = 8000;
-
-const SYSTEM_PROMPT = `
-You select the most appropriate base resume for a job application.
-Use both the job title and the actual responsibilities and requirements in the job description.
-The description may override a broad or misleading title when its core work clearly belongs to another profile.
-Choose exactly one of the supplied profile IDs. Never return or invent a filesystem path.
-Return only valid JSON with this shape:
-{
-  "resumeId": "<allowed profile ID>",
-  "confidence": <number from 0 to 1>,
-  "reason": "<one concise sentence>"
-}
-`.trim();
 
 function normalizeText(value) {
   return String(value || '')
@@ -180,78 +163,9 @@ function selectResumeBySignals(job, config = loadResumeConfig()) {
   };
 }
 
-async function classifyWithGemini(job, profiles) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
-
-  const candidates = profiles.map(profile => ({
-    id: profile.id,
-    label: profile.label,
-    targetTitles: profile.targetTitles,
-    descriptionSignals: profile.descriptionSignals,
-  }));
-  const description = String(job.description || '').slice(0, MAX_JD_CHARS);
-  const prompt = [
-    `JOB TITLE: ${job.title || ''}`,
-    '',
-    'JOB DESCRIPTION:',
-    description,
-    '',
-    'AVAILABLE RESUME PROFILES:',
-    JSON.stringify(candidates, null, 2),
-  ].join('\n');
-
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({
-    model: GEMINI_MODEL,
-    systemInstruction: SYSTEM_PROMPT,
-    generationConfig: { responseMimeType: 'application/json' },
-  });
-  const result = await model.generateContent(prompt);
-  const raw = result.response.text().replace(/```json|```/g, '').trim();
-  return JSON.parse(raw);
-}
-
-function normalizeClassifierSelection(rawSelection, config) {
-  if (!rawSelection || typeof rawSelection.resumeId !== 'string') {
-    throw new Error('Resume classifier did not return a resumeId.');
-  }
-  const profile = config.profiles.find(candidate => candidate.id === rawSelection.resumeId);
-  if (!profile) throw new Error(`Resume classifier returned an unknown profile: ${rawSelection.resumeId}`);
-
-  const confidence = Number(rawSelection.confidence);
-  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
-    throw new Error('Resume classifier returned an invalid confidence value.');
-  }
-  if (typeof rawSelection.reason !== 'string' || !rawSelection.reason.trim()) {
-    throw new Error('Resume classifier did not explain its selection.');
-  }
-
-  return {
-    profile,
-    confidence,
-    reason: rawSelection.reason.trim(),
-    method: 'gemini',
-  };
-}
-
-async function selectResume(job, options = {}) {
+function selectResume(job, options = {}) {
   const config = options.config || loadResumeConfig();
-  const fallback = selectResumeBySignals(job, config);
-  const classifier = Object.hasOwn(options, 'classifier')
-    ? options.classifier
-    : (process.env.GEMINI_API_KEY ? classifyWithGemini : null);
-
-  if (!classifier) return fallback;
-
-  try {
-    const rawSelection = await classifier(job, config.profiles);
-    return normalizeClassifierSelection(rawSelection, config);
-  } catch {
-    return {
-      ...fallback,
-      reason: `${fallback.reason} Semantic classification was unavailable, so configured signals were used.`,
-    };
-  }
+  return selectResumeBySignals(job, config);
 }
 
 function selectResumeManually(profileId, config = loadResumeConfig()) {
