@@ -1,9 +1,12 @@
-const axios   = require('axios');
+const axios = require('axios');
 const cheerio = require('cheerio');
+const { loadCareerProfile } = require('./career-profile');
+const { evaluateJob } = require('./evaluator');
+const { COUNTRIES, MAX_AGE_HOURS, resolveCountries } = require('./search-options');
 require('dotenv').config({ quiet: true });
 
-const GEO_KSA  = '100459316';
 const LI_GUEST = 'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search';
+const NETWORK_CONCURRENCY = 4;
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -12,187 +15,241 @@ const HEADERS = {
   'Referer': 'https://www.google.com/',
 };
 
-// ── time helpers ──────────────────────────────────────────────────────────────
-
-const NATURAL_LANG = /minute|hour|day|week|month|just|moment|now|ago/i;
-
-function parseNaturalLang(s) {
-  const lower = s.toLowerCase().trim();
-  if (/just|moment|now/.test(lower)) return 0.1;
-  const n = parseInt(lower) || 1;
-  if (lower.includes('minute')) return n / 60;
-  if (lower.includes('hour'))   return n;
-  if (lower.includes('day'))    return n * 24;
-  if (lower.includes('week'))   return n * 168;
-  if (lower.includes('month'))  return n * 720;
-  return null;
+function relativeHours(text) {
+  const relative = String(text || '').trim().toLowerCase();
+  if (/^(?:now|just now|moments? ago|a moment ago)$/.test(relative)) return 0;
+  const match = /^(a|an|\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/.exec(relative);
+  if (!match) return NaN;
+  const count = /^(?:a|an)$/.test(match[1]) ? 1 : Number(match[1]);
+  const units = { second: 1 / 3600, minute: 1 / 60, hour: 1, day: 24, week: 168, month: 720, year: 8760 };
+  return count * units[match[2]];
 }
 
-function toHoursAgo(textContent, datetimeAttr) {
-  if (textContent && NATURAL_LANG.test(textContent)) {
-    const r = parseNaturalLang(textContent);
-    if (r !== null) return r;
+// Precise timestamps outrank labels. A date plus an agreeing relative label
+// retains its hour precision; a bare date is bounded from UTC midnight.
+function toHoursAgo(text, datetime, now) {
+  const value = String(datetime || '').trim();
+  if (value) {
+    const date = /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(value);
+    if (!date) return NaN;
+    const midnight = Date.parse(`${date[1]}-${date[2]}-${date[3]}T00:00:00Z`);
+    if (!Number.isFinite(midnight)
+      || new Date(midnight).toISOString().slice(0, 10) !== value.slice(0, 10)) return NaN;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const hours = relativeHours(text);
+      if (Number.isFinite(hours)) {
+        const impliedDate = new Date(now - hours * 3_600_000);
+        return Number.isFinite(impliedDate.getTime())
+          && impliedDate.toISOString().slice(0, 10) === value ? hours : NaN;
+      }
+      return (now - midnight) / 3_600_000;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return NaN;
+    return (now - Date.parse(value)) / 3_600_000;
   }
-  const attr = datetimeAttr || '';
-  if (attr.includes('T')) return Math.max(0, (Date.now() - new Date(attr).getTime()) / 3_600_000);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(attr)) return Math.max(0, (Date.now() - new Date(attr + 'T12:00:00Z').getTime()) / 3_600_000);
-  if (textContent) { const r = parseNaturalLang(textContent); if (r !== null) return r; }
-  return 9999;
+  return relativeHours(text);
 }
 
-function freshnessLabel(hours) {
-  if (hours <  1)  return '< 1 hr ago';
-  if (hours <  6)  return `${Math.round(hours)} hrs ago`;
-  if (hours < 24)  return `${Math.round(hours)} hrs ago`;
-  if (hours < 48)  return '1 day ago';
-  return `${Math.floor(hours / 24)} days ago`;
+function freshnessLabel(hours, dateOnly = false) {
+  if (dateOnly) return 'Posted today (time unknown)';
+  return hours < 1 ? '< 1 hr ago' : `${Math.floor(hours)} hr${hours >= 2 ? 's' : ''} ago`;
 }
 
-function makeJob(title, company, location, timeText, datetimeAttr, link, source) {
-  const hoursAgo = toHoursAgo(timeText, datetimeAttr);
-  return { title, company, location, hoursAgo, freshnessLabel: freshnessLabel(hoursAgo), link, source, description: null };
+function countryMatches(job, country) {
+  const declared = String(job.job_country || '').trim().toLowerCase();
+  if (declared && declared !== country.code.toLowerCase() && declared !== country.name.toLowerCase()) {
+    return false;
+  }
+  const location = String(job.location || '').toLowerCase();
+  const segments = location.split(/[,;|()/]+/).map(part => part.trim());
+  const mentioned = COUNTRIES.filter(candidate => {
+    const name = candidate.name.toLowerCase();
+    const namePattern = new RegExp(`\\b${name}\\b`);
+    return namePattern.test(location) || segments.includes(candidate.code.toLowerCase());
+  });
+  if (mentioned.some(candidate => candidate.code !== country.code)) return false;
+  return Boolean(declared || mentioned.some(candidate => candidate.code === country.code));
 }
 
-// ── LinkedIn guest API ────────────────────────────────────────────────────────
-
-async function scrapeLinkedIn(keyword) {
-  try {
-    const url = `${LI_GUEST}?keywords=${encodeURIComponent(keyword)}&location=Saudi+Arabia&geoId=${GEO_KSA}&sortBy=DD&f_TPR=r86400&start=0`;
-    const { data } = await axios.get(url, { headers: HEADERS, timeout: 12000 });
-    const $ = cheerio.load(data);
-    const jobs = [];
-    $('li').each((_, el) => {
-      const title        = $(el).find('.base-search-card__title').text().trim();
-      const company      = $(el).find('.base-search-card__subtitle').text().trim();
-      const location     = $(el).find('.job-search-card__location').text().trim();
-      const timeEl       = $(el).find('time');
-      const timeText     = timeEl.text().trim();
-      const datetimeAttr = timeEl.attr('datetime') || '';
-      const link         = ($(el).find('a.base-card__full-link').attr('href') || '').split('?')[0];
-      if (title && company) jobs.push(makeJob(title, company, location, timeText, datetimeAttr, link, 'LinkedIn'));
-    });
-    return jobs;
-  } catch { return []; }
+function makeJob(fields, country, timeText, datetime) {
+  const now = Date.now();
+  const hoursAgo = toHoursAgo(timeText, datetime, now);
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(String(datetime || '').trim())
+    && !Number.isFinite(relativeHours(timeText));
+  return {
+    ...fields,
+    country: country.code,
+    countryName: country.name,
+    hoursAgo,
+    postedAt: now - hoursAgo * 3_600_000,
+    dateOnly,
+    freshnessLabel: freshnessLabel(hoursAgo, dateOnly),
+    description: fields.description || '',
+  };
 }
 
-// ── JSearch API (RapidAPI) ────────────────────────────────────────────────────
-// Free tier: 200 requests/month
-// Sign up: https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch
-// Add JSEARCH_API_KEY to .env to enable
-
-async function scrapeJSearch(keyword) {
-  if (!process.env.JSEARCH_API_KEY) return [];
-  try {
-    const { data } = await axios.get('https://jsearch.p.rapidapi.com/search', {
-      params: {
-        query:       `${keyword} in Saudi Arabia`,
-        page:        '1',
-        num_pages:   '1',
-        date_posted: 'today',
-        country:     'SA',
-      },
-      headers: {
-        'X-RapidAPI-Key':  process.env.JSEARCH_API_KEY,
-        'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
-      },
-      timeout: 12000,
-    });
-    return (data.data || []).map(j => makeJob(
-      j.job_title       || '',
-      j.employer_name   || '',
-      j.job_city        || 'Saudi Arabia',
-      j.job_posted_at_datetime_utc || '',
-      '',
-      j.job_apply_link  || '',
-      j.job_publisher   || 'JSearch'
-    ));
-  } catch { return []; }
+async function scrapeLinkedIn(keyword, country) {
+  const params = new URLSearchParams({
+    keywords: keyword,
+    location: country.name,
+    sortBy: 'DD',
+    f_TPR: 'r86400',
+    start: '0',
+  });
+  const { data } = await axios.get(`${LI_GUEST}?${params}`, { headers: HEADERS, timeout: 12000 });
+  const $ = cheerio.load(data);
+  const jobs = [];
+  $('li').each((_, el) => {
+    const card = $(el);
+    const time = card.find('time');
+    jobs.push(makeJob({
+      title: card.find('.base-search-card__title').text().trim(),
+      company: card.find('.base-search-card__subtitle').text().trim(),
+      location: card.find('.job-search-card__location').text().trim(),
+      link: (card.find('a.base-card__full-link').attr('href') || '').split('?')[0],
+      source: 'LinkedIn',
+    }, country, time.text(), time.attr('datetime')));
+  });
+  return jobs;
 }
 
-// ── mock data for --demo flag ─────────────────────────────────────────────────
-
-function getMockJobs(keyword) {
-  return [
-    makeJob(`${keyword} – Senior Level`,       'Saudi Aramco Digital', 'Dhahran, Eastern Province', '25 minutes ago', '', 'https://linkedin.com/jobs/view/1', 'LinkedIn'),
-    makeJob(`Junior ${keyword}`,               'stc solutions',        'Riyadh, Saudi Arabia',      '1 hour ago',     '', 'https://linkedin.com/jobs/view/2', 'LinkedIn'),
-    makeJob(`${keyword} – AI Focus`,           'Lucidya',              'Jeddah, Saudi Arabia',      '3 hours ago',    '', 'https://linkedin.com/jobs/view/3', 'LinkedIn'),
-    makeJob(`${keyword} II`,                   'Master Works',         'Riyadh, Saudi Arabia',      '5 hours ago',    '', 'https://jsearch.com/jobs/4',        'JSearch'),
-    makeJob(`Lead ${keyword}`,                 'EPAM Systems',         'Al Khobar, Saudi Arabia',   '20 hours ago',   '', 'https://jsearch.com/jobs/5',        'JSearch'),
-    makeJob(`${keyword} – Remote (KSA-based)`, 'IntelliSense.io',      'Remote, Saudi Arabia',      'Just now',       '', 'https://linkedin.com/jobs/view/6',  'LinkedIn'),
-    makeJob(`${keyword} Intern`,               'Mozn',                 'Riyadh, Saudi Arabia',      '2 days ago',     '', 'https://jsearch.com/jobs/7',         'JSearch'),
-  ];
+async function scrapeJSearch(keyword, country) {
+  const { data } = await axios.get('https://jsearch.p.rapidapi.com/search', {
+    params: {
+      query: `${keyword} in ${country.name}`,
+      page: '1',
+      num_pages: '1',
+      date_posted: 'today',
+      country: country.code.toLowerCase(),
+    },
+    headers: {
+      'X-RapidAPI-Key': process.env.JSEARCH_API_KEY,
+      'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
+    },
+    timeout: 12000,
+  });
+  if (!Array.isArray(data?.data)) throw new Error('Invalid JSearch response');
+  return data.data.map(job => makeJob({
+    title: job.job_title || '',
+    company: job.employer_name || '',
+    location: [job.job_city, job.job_state, job.job_country].filter(Boolean).join(', '),
+    job_country: job.job_country || '',
+    description: job.job_description || '',
+    publisher: job.job_publisher || '',
+    link: job.job_apply_link || '',
+    source: 'JSearch',
+  }, country, '', job.job_posted_at_datetime_utc));
 }
 
-// ── fetch description on demand ───────────────────────────────────────────────
+function getDemoJobs(keyword, countries) {
+  return countries.map(country => makeJob({
+    title: keyword,
+    company: `[DEMO] Synthetic ${country.name} Employer`,
+    location: country.name,
+    link: '',
+    source: 'Demo',
+    description: `[DEMO — SYNTHETIC POSTING, NOT A REAL VACANCY] ${keyword} in ${country.name}.
+Responsibilities: build reliable backend services using Node.js, Python and PostgreSQL;
+collaborate with engineers, document designs and maintain automated tests.
+Requirements: 2 years of experience delivering software and strong communication skills.`,
+  }, country, '1 hour ago', ''));
+}
+
+async function loadDescription(job) {
+  if (job.description) return job.description;
+  if (!job.link) return '';
+  const { data } = await axios.get(job.link, { headers: HEADERS, timeout: 12000 });
+  const $ = cheerio.load(data);
+  if (job.source === 'LinkedIn') {
+    return $('.show-more-less-html__markup').text().trim() || $('.description__text').text().trim();
+  }
+  return $('body').text().replace(/\s+/g, ' ').trim().slice(0, 20000);
+}
 
 async function fetchDescription(job) {
-  if (job.description) return job.description;
-  if (!job.link)       return 'No link available.';
   try {
-    const { data } = await axios.get(job.link, { headers: HEADERS, timeout: 12000 });
-    const $ = cheerio.load(data);
-    if (job.source === 'LinkedIn') return $('.show-more-less-html__markup').text().trim() || $('.description__text').text().trim() || 'Description not available.';
-    return $('body').text().replace(/\s+/g, ' ').trim().slice(0, 2000) || 'Description not available.';
-  } catch { return 'Could not load description — visit the link below for full details.'; }
-}
-
-// ── rank + dedup ──────────────────────────────────────────────────────────────
-
-function rankJobs(jobs, keyword) {
-  const kw    = keyword.toLowerCase();
-  const words = kw.split(/\s+/);
-  const seen  = new Set();
-
-  return jobs
-    .filter(j => {
-      const key = `${j.title.toLowerCase()}|${j.company.toLowerCase()}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .map(job => {
-      let score = 0;
-      const h = job.hoursAgo;
-      if      (h <  1)  score += 60;
-      else if (h <  6)  score += 50;
-      else if (h < 24)  score += 40;
-      else if (h < 72)  score += 20;
-      else              score += 5;
-
-      const t = job.title.toLowerCase();
-      if (t.includes(kw))                          score += 30;
-      else if (words.some(w => t.includes(w)))     score += 15;
-
-      return { ...job, score };
-    })
-    .sort((a, b) => b.score - a.score);
-}
-
-// ── main export ───────────────────────────────────────────────────────────────
-
-async function getJobs(keyword, demo = false) {
-  if (demo) {
-    const jobs = rankJobs(getMockJobs(keyword), keyword);
-    return {
-      jobs,
-      sources: { LinkedIn: 4, JSearch: 3 },
-      fetchDescription: j => Promise.resolve(`[DEMO] Sample description for "${j.title}" at ${j.company}.\n\nResponsibilities:\n- Build scalable backend systems\n- Collaborate with cross-functional teams\n- Write clean, testable code\n\nRequirements:\n- 2+ years experience\n- Python or Node.js\n- Strong communication skills`)
-    };
+    return await loadDescription(job);
+  } catch {
+    return '';
   }
+}
 
-  process.stdout.write('  Searching LinkedIn...');
-  const liGuest = await scrapeLinkedIn(keyword);
-  process.stdout.write(' JSearch...\n');
-  const jsearch = await scrapeJSearch(keyword);
+async function mapConcurrent(items, operation) {
+  const results = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(NETWORK_CONCURRENCY, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await operation(items[index]);
+    }
+  }));
+  return results;
+}
 
-  const liAll = rankJobs(liGuest, keyword).filter((j, i, arr) =>
-    arr.findIndex(x => x.title === j.title && x.company === j.company) === i
-  );
+function rankJobs(jobs) {
+  const priority = new Map(COUNTRIES.map((country, index) => [country.code, index]));
+  const seen = new Set();
+  return jobs.sort((a, b) =>
+    priority.get(a.country) - priority.get(b.country)
+      || b.evaluation.score - a.evaluation.score
+      || a.hoursAgo - b.hoursAgo
+  ).filter(job => {
+    const key = [job.country, job.location, job.title, job.company]
+      .map(value => value.toLowerCase().replace(/\s+/g, ' ').trim()).join('|');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
-  const jobs    = rankJobs([...liAll, ...jsearch], keyword);
-  const sources = { LinkedIn: liAll.length, JSearch: jsearch.length };
-
-  return { jobs, sources, fetchDescription };
+async function getJobs(keyword, options = {}) {
+  const countries = resolveCountries(options.countries);
+  const careerProfile = options.careerProfile || loadCareerProfile();
+  const warnings = [];
+  let retrieved;
+  if (options.demo) {
+    retrieved = getDemoJobs(keyword, countries);
+  } else {
+    const requests = countries.flatMap(country => [
+      { country, source: 'LinkedIn', scrape: scrapeLinkedIn },
+      ...(process.env.JSEARCH_API_KEY ? [{ country, source: 'JSearch', scrape: scrapeJSearch }] : []),
+    ]);
+    const batches = await mapConcurrent(requests, async ({ country, source, scrape }) => {
+      try {
+        return await scrape(keyword, country);
+      } catch {
+        warnings.push(`${country.name}: ${source} search failed; results may be incomplete.`);
+        return [];
+      }
+    });
+    retrieved = batches.flat();
+  }
+  const eligible = retrieved.filter(job => job.title && job.company
+    && Number.isFinite(job.hoursAgo) && job.hoursAgo >= 0 && job.hoursAgo < MAX_AGE_HOURS
+    && countryMatches(job, countries.find(country => country.code === job.country)));
+  const evaluated = await mapConcurrent(eligible, async job => {
+    try {
+      job.description = await loadDescription(job);
+    } catch {
+      job.description = '';
+    }
+    if (!job.description.trim()) {
+      warnings.push(`${job.countryName}: ${job.source} description unavailable; a posting was excluded.`);
+    }
+    job.evaluation = await evaluateJob(job, { careerProfile, localOnly: true });
+    return job;
+  });
+  const now = Date.now();
+  const jobs = rankJobs(evaluated.filter(job => {
+    // Description requests can take a posting past the cutoff before display.
+    job.hoursAgo = (now - job.postedAt) / 3_600_000;
+    job.freshnessLabel = freshnessLabel(job.hoursAgo, job.dateOnly);
+    return job.evaluation.verdict === 'apply'
+      && Number.isFinite(job.hoursAgo) && job.hoursAgo >= 0 && job.hoursAgo < MAX_AGE_HOURS;
+  }));
+  const sources = options.demo ? { Demo: 0 } : { LinkedIn: 0, JSearch: 0 };
+  for (const job of jobs) sources[job.source] = (sources[job.source] || 0) + 1;
+  return { jobs, sources, warnings: [...new Set(warnings)].sort(), countries };
 }
 
 module.exports = { getJobs, fetchDescription };

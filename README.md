@@ -6,7 +6,7 @@ JAVE started as a simple bulk email tool for job applications. It has since evol
 
 ## What It Does
 
-**Part 1 — Scout** finds and displays relevant job listings from LinkedIn in your terminal. You can browse listings, read full descriptions, and select jobs you want to apply to.
+**Part 1 — Scout** finds and displays recent, locally profile-matched job listings from LinkedIn and optional JSearch in your terminal. Choose countries, browse listings, read full descriptions, and select jobs you want to apply to.
 
 **Part 2 — Agent** takes Scout's output further. It evaluates each job against your profile, waits for your approval, tailors your resume, fills supported LinkedIn Easy Apply forms, and stops for a complete review. The application is submitted only after you explicitly type `SUBMIT`.
 
@@ -19,6 +19,7 @@ jave/
 ├── scout.js                        # Browse jobs interactively
 ├── apply.js                        # Full reviewed application workflow
 ├── scrapers.js                     # Fetch jobs from LinkedIn and JSearch
+├── search-options.js                # Shared country selection, CLI options, and search policy
 ├── job-analyzer.js                 # Isolated job-only Gemini gateway
 ├── evaluator.js                    # Local candidate scoring and fallback extraction
 ├── career-profile.json             # Local professional facts; ignored by Git
@@ -89,7 +90,7 @@ cp career-profile.example.json career-profile.json
 chmod 600 career-profile.json
 ```
 
-Fill in the headline, years of experience, education, skills, languages, and target roles. This file is also ignored by Git. It is used after Gemini returns a job-only requirement analysis; it is not included in the Gemini request.
+Fill in the headline, years of experience, education, skills, languages, and target roles. This file is also ignored by Git. Scout and Agent use it for local screening before displaying search results. The Agent also uses it after Gemini returns a job-only requirement analysis; it is never included in the Gemini request.
 
 ### 3. Configure base resumes
 
@@ -134,15 +135,38 @@ Make sure Chromium is fully closed before running the agent. Two instances shari
 node scout.js
 ```
 
-You will be prompted to enter a job title or keyword. Scout fetches matching jobs, ranks them by freshness and relevance, and displays them in a color-coded list. Select any job to read its full description and access the original link.
+Select countries with **Space**, then press **Enter**. **Malaysia (MY)** and **Oman (OM)** are preselected; **Singapore (SG)** and **Saudi Arabia (SA)** are also available. At least one country is required. The keyword prompt defaults to your first target role in `career-profile.json`. Search again lets you change countries and remembers the previous selection within the session.
+
+To bypass the initial country prompt:
+
+```bash
+node scout.js --countries MY,OM
+node scout.js --countries MY,OM,SG
+node scout.js --countries SG
+```
+
+Both commands accept comma-separated country codes or quoted full names, case-insensitively, including `--countries=MY,OM`. Run `node scout.js --help` or `node apply.js --help` for usage.
+
+**Search rules shared by Scout and Agent:**
+
+- Query only selected countries. Malaysia ranks first, then Oman, Singapore, and Saudi Arabia; within each country, local match score and then freshness determine order.
+- Show only postings younger than **24 hours**, checked again after descriptions load. Missing, invalid, future, and expired timestamps are excluded; no older-job fallback is used to fill an empty list.
+- A precise timestamp takes precedence over relative text. Date-only postings use an agreeing relative label when available; contradictory dates are excluded. Without hour-level evidence, age is conservatively bounded from UTC midnight and displayed as “time unknown.” This may omit genuinely recent postings with incomplete dates.
+- Require explicit country evidence from the listing. City-only locations and global remote listings without country evidence are excluded rather than assigned to the requested country.
+- Load descriptions and screen locally against target roles, skills, and experience. A role outside your configured targets needs at least two distinct matching profile skills; excessive experience requirements are rejected by the evaluator. Listings without usable descriptions are excluded. No model calls or candidate-profile data are sent to search providers.
+- Display local match scores, matched skills in details, and counts for the final filtered results. Scores are heuristic screening signals, not a complete qualification assessment; review the description and work-authorization or nationality restrictions yourself.
+- Report source failures separately from a genuine no-match result. An unavailable source does not discard successful results from another country or source.
+
+Select a job to view its description, local match details, and original link. To try the country-selection interface without network requests, run `node scout.js --demo`. Demo postings are clearly synthetic and still pass through the country, freshness, and profile filters.
 
 **Run the full agent:**
 
 ```bash
 node apply.js "Software Engineer"
+node apply.js "Software Engineer" --countries MY,OM
 ```
 
-1. Fetch up to 15 LinkedIn jobs matching your keyword
+1. Select countries (unless supplied with `--countries`) and fetch recent, locally profile-matched LinkedIn/JSearch jobs; process up to 15
 2. Ask Gemini to extract requirements from job-posting data only, or use local extraction when Gemini is unavailable
 3. Score the extracted requirements locally against `career-profile.json`; anything below 50% match is skipped automatically
 4. Select a base DOCX locally from configured role signals
@@ -187,5 +211,5 @@ Every job the agent processes is recorded in `applications.json`, including:
 - LinkedIn Easy Apply forms vary significantly between companies. Most are handled automatically, but complex forms with custom questions will pause and ask you for input.
 - Jobs that redirect to external company websites are skipped by design.
 - LinkedIn may occasionally detect browser automation and log out the session. If this happens, log back in manually in Chromium and run the agent again.
-- JSearch free tier allows 200 requests per month.
+- JSearch is optional and requires a subscribed RapidAPI key. Each search makes one JSearch request per selected country when configured; selecting more countries consumes more quota.
 - Gemini rate limits can affect job-requirement extraction. JAVE falls back to local extraction without sending candidate data.

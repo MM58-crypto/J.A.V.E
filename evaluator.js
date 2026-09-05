@@ -79,20 +79,23 @@ function evaluateCandidate(job, analysis, careerProfile) {
     ? 15
     : Math.max(0, 15 - (experienceGap * 5));
 
+  const matched = [...new Set([...matchedRequired, ...matchedPreferred])];
+  // A lone shared term can be incidental or ambiguous (for example an acronym).
+  // Outside target roles, require corroborating skill evidence.
+  const distinctMatches = new Set(matched.map(normalizeTerm)).size;
   const redLines = [];
   if (experienceGap > 2) {
     redLines.push(
       `Requires ${analysis.minimum_years} years; candidate profile has ${careerProfile.years_experience}.`,
     );
   }
-  if (roleFit === 0 && matchedRequired.length === 0 && required.length > 0) {
-    redLines.push('Role is outside the configured target roles and matched skills.');
+  if (roleFit === 0 && distinctMatches < 2) {
+    redLines.push('No target-role overlap and fewer than two distinct profile skills matched.');
   }
 
   const score = Math.max(0, Math.min(100, Math.round(
     requiredScore + preferredScore + roleScore + experienceScore,
   )));
-  const matched = [...new Set([...matchedRequired, ...matchedPreferred])];
   const verdict = redLines.length || score < 50 ? 'skip' : 'apply';
   const reasoning = `${matched.length} requirement${matched.length === 1 ? '' : 's'} matched; `
     + `${missing.length} required skill${missing.length === 1 ? '' : 's'} missing; `
@@ -125,13 +128,18 @@ async function evaluateJob(job, options = {}) {
   const careerProfile = options.careerProfile || loadCareerProfile();
   let analysis;
   let method;
-  try {
-    ({ analysis, method } = await analyzeJobRequirements(job, {
-      generateContent: options.generateContent,
-    }));
-  } catch {
+  if (options.localOnly) {
     analysis = normalizeJobAnalysis(analyzeLocally(job, careerProfile));
     method = 'local';
+  } else {
+    try {
+      ({ analysis, method } = await analyzeJobRequirements(job, {
+        generateContent: options.generateContent,
+      }));
+    } catch {
+      analysis = normalizeJobAnalysis(analyzeLocally(job, careerProfile));
+      method = 'local';
+    }
   }
 
   return {

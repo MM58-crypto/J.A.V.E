@@ -1,10 +1,19 @@
 #!/usr/bin/env node
 
+const {
+  readCliOptions,
+  promptCountries,
+  searchScope,
+} = require('./search-options');
+
+const options = readCliOptions('apply');
+
 const chalk      = require('chalk');
 const inquirer   = require('inquirer');
 const fs         = require('fs');
 const path       = require('path');
-const { getJobs, fetchDescription } = require('./scrapers');
+const { getJobs } = require('./scrapers');
+const { loadCareerProfile } = require('./career-profile');
 const { evaluateJob }  = require('./evaluator');
 const { tailorResume } = require('./tailor');
 const { applyToJob } = require('./applier');
@@ -27,6 +36,8 @@ function logApplication(job, evaluation, result, resumeSelection = null) {
     title:     job.title,
     company:   job.company,
     location:  job.location,
+    country:   job.country,
+    countryName: job.countryName,
     link:      job.link,
     score:     evaluation.score,
     matched:   evaluation.matched,
@@ -77,7 +88,8 @@ function printEvaluation(job, ev, resumeSelection) {
 
   console.log(chalk.dim('\n  ────────────────────────────────────────────'));
   console.log(chalk.white.bold(`  ${job.title}`));
-  console.log(chalk.cyan(`  ${job.company}  ·  ${job.location}  ·  ${job.freshnessLabel}`));
+  console.log(chalk.cyan(`  ${job.company}  ·  ${job.location || job.countryName} [${job.country}]  ·  ${job.freshnessLabel}`));
+  console.log(chalk.green(`  Local profile match: ${job.evaluation.score}% — ${job.evaluation.reasoning}`));
   console.log(`  Match: ${scoreColor(`${ev.score}%`)}  —  ${chalk.dim(ev.reasoning)}`);
 
   if (ev.matched.length)    console.log(chalk.green(`  ✓ ${ev.matched.slice(0, 5).join('  ✓ ')}`));
@@ -108,43 +120,46 @@ async function promptResumeOverride(config, currentSelection) {
 // ── main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const keyword = process.argv[2];
-  if (!keyword) {
-    console.log(chalk.red('\n  Usage: node apply.js "Software Engineer"\n'));
-    process.exit(1);
-  }
+  const keyword = options.keyword;
+  if (!keyword) throw new Error('A job keyword is required. Usage: node apply.js "Software Engineer" [--countries MY,OM]. Use --help for details.');
 
-  const resumeConfig = loadResumeConfig();
+  const countries = options.countries || await promptCountries();
+  const careerProfile = loadCareerProfile();
 
   console.clear();
   console.log(chalk.blueBright.bold('\n  JAVE Agent — LinkedIn Auto-Apply\n'));
-  console.log(chalk.dim(`  Searching for "${keyword}"...\n`));
+  console.log(chalk.dim(`  ${searchScope(countries)}\n`));
+  console.log(chalk.dim(`  Searching for "${keyword}" and checking local profile relevance...\n`));
 
-  const { jobs } = await getJobs(keyword);
+  const { jobs, sources, warnings } = await getJobs(keyword, { countries, careerProfile });
+  for (const warning of warnings) {
+    console.log(chalk.yellow(`  Source warning: ${warning}`));
+  }
+  const sourceSummary = Object.entries(sources)
+    .filter(([, count]) => count > 0)
+    .map(([source, count]) => `${source}: ${count}`);
+  if (sourceSummary.length) console.log(chalk.dim(`  Displayed sources: ${sourceSummary.join(' · ')}\n`));
 
   if (!jobs.length) {
-    console.log(chalk.red('  No jobs found. Exiting.\n'));
-    process.exit(0);
+    console.log(chalk.yellow('  No verified postings younger than 24 hours matched your local career profile in the selected countries.\n'));
+    if (warnings.length) {
+      console.log(chalk.yellow('  Search coverage was incomplete; unavailable sources may have matching jobs.\n'));
+    }
+    return;
   }
 
+  const resumeConfig = loadResumeConfig();
   const batch = jobs.slice(0, MAX_JOBS);
-  console.log(chalk.dim(`  Found ${jobs.length} jobs — processing up to ${batch.length}.\n`));
+  console.log(chalk.dim(`  Found ${jobs.length} locally matched jobs from the last 24 hours — processing up to ${batch.length}.\n`));
 
   let submitted = 0;
   let confirmed = 0;
   let skipped = 0;
 
   for (const job of batch) {
-    // fetch description if not already loaded
-    if (!job.description) {
-      process.stdout.write(chalk.dim(`  Fetching description for "${job.title}"...`));
-      job.description = await fetchDescription(job);
-      process.stdout.write('\r' + ' '.repeat(60) + '\r');
-    }
-
     // evaluate
     process.stdout.write(chalk.dim(`  Evaluating "${job.title}"...`));
-    const ev = await evaluateJob(job);
+    const ev = await evaluateJob(job, { careerProfile });
     process.stdout.write('\r' + ' '.repeat(60) + '\r');
 
     // auto-skip low scores and red lines

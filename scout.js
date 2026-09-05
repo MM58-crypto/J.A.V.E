@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 
+const {
+  DEFAULT_COUNTRIES,
+  readCliOptions,
+  promptCountries,
+  searchScope,
+} = require('./search-options');
+
+const options = readCliOptions('scout');
+
 const inquirer = require('inquirer');
 const chalk    = require('chalk');
-const { getJobs, fetchDescription } = require('./scrapers');
+const { getJobs } = require('./scrapers');
+const { loadCareerProfile } = require('./career-profile');
 const { tailorResume } = require('./tailor');
 const {
   loadResumeConfig,
@@ -26,18 +36,20 @@ function colorTitle(title, hours) {
 
 // ── display helpers ───────────────────────────────────────────────────────────
 
-function printHeader(keyword) {
+function printHeader(keyword, state) {
   console.clear();
   console.log(chalk.blueBright.bold('\n  SCOUT — Job Finder'));
-  console.log(chalk.dim(`  Searching for: "${keyword}"\n`));
+  console.log(chalk.dim(`  Searching for: "${keyword}"`));
+  printSearchContext(state);
 }
 
-function printLegend() {
-  console.log(
-    chalk.greenBright('● < 1 hr') + '  ' +
-    chalk.yellow('● < 24 hrs') + '  ' +
-    chalk.gray('● older') + '\n'
-  );
+function printSearchContext(state) {
+  console.log(chalk.dim(`  ${searchScope(state.countries)}\n`));
+  if (state.demo) console.log(chalk.yellow('  DEMO — synthetic postings, not real vacancies.\n'));
+  for (const warning of state.warnings || []) {
+    console.log(chalk.yellow(`  Source warning: ${warning}`));
+  }
+  if (state.warnings?.length) console.log('');
 }
 
 function buildChoices(jobs) {
@@ -45,11 +57,12 @@ function buildChoices(jobs) {
     const num      = chalk.dim(`${String(i + 1).padStart(2, ' ')}. `);
     const title    = colorTitle(job.title, job.hoursAgo);
     const company  = chalk.cyan(job.company);
-    const location = chalk.dim(job.location || 'Saudi Arabia');
+    const location = chalk.dim(`${job.location || job.countryName} [${job.country}]`);
     const time     = colorFreshness(job.freshnessLabel, job.hoursAgo);
     const source   = chalk.dim(`[${job.source}]`);
 
-    const name = `${num}${title}\n      ${company} · ${location} · ${time} · ${source}`;
+    const match = chalk.green(`Local match: ${job.evaluation.score}%`);
+    const name = `${num}${title}\n      ${company} · ${location} · ${time} · ${source} · ${match}`;
 
     return { name, value: i, short: job.title };
   });
@@ -82,22 +95,21 @@ async function chooseResumeForJob(job) {
 
 // ── job detail view ───────────────────────────────────────────────────────────
 
-async function showDetail(job, keyword) {
+async function showDetail(job, keyword, state) {
   console.clear();
   console.log(chalk.blueBright.bold('\n  JOB DETAIL\n'));
+  printSearchContext(state);
   console.log(chalk.white.bold(`  ${job.title}`));
   console.log(chalk.cyan(`  ${job.company}`));
-  console.log(chalk.dim(`  ${job.location || 'Saudi Arabia'}  ·  ${job.freshnessLabel}  ·  ${job.source}\n`));
+  console.log(chalk.dim(`  ${job.location || job.countryName} [${job.country}]  ·  ${job.freshnessLabel}  ·  ${job.source}\n`));
+  console.log(chalk.green(`  Local profile match: ${job.evaluation.score}% — ${job.evaluation.verdict}`));
+  console.log(chalk.dim(`  ${job.evaluation.reasoning}`));
+  if (job.evaluation.matched.length) console.log(chalk.green(`  Matched: ${job.evaluation.matched.join(', ')}`));
+  if (job.evaluation.missing.length) console.log(chalk.yellow(`  Missing: ${job.evaluation.missing.join(', ')}`));
   console.log(chalk.dim('  ─────────────────────────────────────────────\n'));
 
-  if (!job.description) {
-    process.stdout.write(chalk.dim('  Fetching description...'));
-    job.description = await fetchDescription(job);
-    process.stdout.write('\r' + ' '.repeat(40) + '\r');
-  }
-
   // wrap description at 70 chars
-  const lines = job.description
+  const lines = (job.description || '')
     .replace(/\n{3,}/g, '\n\n')
     .split('\n')
     .map(l => l.trim())
@@ -136,7 +148,7 @@ async function showDetail(job, keyword) {
     }
     console.log('');
     await pause(2000);
-    return showDetail(job, keyword);
+    return showDetail(job, keyword, state);
   }
 
   if (action === 'exit') {
@@ -150,9 +162,8 @@ async function showDetail(job, keyword) {
 
 // ── job list view ─────────────────────────────────────────────────────────────
 
-async function showList(jobs, keyword, sources) {
-  printHeader(keyword);
-  printLegend();
+async function showList(jobs, keyword, sources, state) {
+  printHeader(keyword, state);
 
   // source summary
   if (sources) {
@@ -163,16 +174,19 @@ async function showList(jobs, keyword, sources) {
   }
 
   if (jobs.length === 0) {
-    console.log(chalk.red('  No jobs found. Try a different keyword.\n'));
+    console.log(chalk.yellow('  No verified postings younger than 24 hours matched your local career profile in the selected countries.\n'));
+    if (state.warnings.length) {
+      console.log(chalk.yellow('  Search coverage was incomplete; unavailable sources may have matching jobs.\n'));
+    }
     const { again } = await inquirer.prompt([{
       type: 'confirm', name: 'again', message: 'Search again?', default: true,
     }]);
-    if (again) return searchAgain();
+    if (again) return searchAgain(state);
     console.log(chalk.dim('\n  Goodbye.\n'));
     process.exit(0);
   }
 
-  console.log(chalk.dim(`  Found ${jobs.length} job(s). Use arrow keys to select.\n`));
+  console.log(chalk.dim(`  Found ${jobs.length} locally matched job(s) from the last 24 hours. Use arrow keys to select.\n`));
 
   const choices = [
     ...buildChoices(jobs),
@@ -194,10 +208,10 @@ async function showList(jobs, keyword, sources) {
     process.exit(0);
   }
 
-  if (selected === 'search') return searchAgain();
+  if (selected === 'search') return searchAgain(state);
 
-  const result = await showDetail(jobs[selected], keyword);
-  if (result === 'back') return showList(jobs, keyword, sources);
+  const result = await showDetail(jobs[selected], keyword, state);
+  if (result === 'back') return showList(jobs, keyword, sources, state);
 }
 
 // ── pause helper ──────────────────────────────────────────────────────────────
@@ -208,30 +222,47 @@ function pause(ms = 1500) {
 
 // ── search ────────────────────────────────────────────────────────────────────
 
-async function searchAgain() {
+async function searchAgain(state, initial = false) {
   console.clear();
   console.log(chalk.blueBright.bold('\n  SCOUT — Job Finder\n'));
 
+  if (!initial || !state.countryOverride) {
+    state.countries = await promptCountries(state.countries);
+  }
+  console.log(chalk.dim(`  ${searchScope(state.countries)}\n`));
   const { keyword } = await inquirer.prompt([{
     type: 'input',
     name: 'keyword',
     message: 'Enter job role or keyword:',
+    default: state.keyword || state.careerProfile.target_roles[0],
     validate: v => v.trim().length > 0 || 'Please enter a keyword',
   }]);
 
-  const demo = process.argv.includes('--demo');
-  console.clear();
-  console.log(chalk.blueBright.bold('\n  SCOUT — Job Finder\n'));
-  console.log(chalk.dim(`  Fetching jobs for "${keyword.trim()}"...\n`));
+  state.keyword = keyword.trim();
+  state.warnings = [];
+  printHeader(state.keyword, state);
+  console.log(chalk.dim('  Fetching and locally evaluating jobs...\n'));
 
-  const { jobs, sources } = await getJobs(keyword.trim(), demo);
-  await showList(jobs, keyword.trim(), sources);
+  const { jobs, sources, warnings, countries } = await getJobs(state.keyword, {
+    countries: state.countries,
+    demo: state.demo,
+    careerProfile: state.careerProfile,
+  });
+  state.countries = countries.map(country => country.code);
+  state.warnings = warnings;
+  await showList(jobs, state.keyword, sources, state);
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  await searchAgain();
+  await searchAgain({
+    careerProfile: loadCareerProfile(),
+    countries: options.countries || DEFAULT_COUNTRIES,
+    countryOverride: Boolean(options.countries),
+    demo: options.demo,
+    warnings: [],
+  }, true);
 }
 
 main().catch(err => {

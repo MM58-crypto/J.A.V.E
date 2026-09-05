@@ -81,3 +81,57 @@ test('malformed model output falls back to local extraction', async () => {
   assert.ok(result.matched.includes('Node.js'));
   assert.ok(result.matched.includes('PostgreSQL'));
 });
+
+test('local fallback rejects unrelated roles when no skills were extracted', async () => {
+  const result = await evaluateJob({
+    title: 'Dental Hygienist',
+    description: 'Provide routine dental cleaning and patient education in a licensed clinical practice.',
+  }, {
+    careerProfile,
+    generateContent: async () => { throw new Error('offline'); },
+  });
+
+  assert.equal(result.verdict, 'skip');
+  assert.deepEqual(result.matched, []);
+});
+
+test('local search screening works without a model and rejects excessive experience requirements', async () => {
+  let modelRequests = 0;
+  const options = {
+    careerProfile,
+    localOnly: true,
+    generateContent: async () => {
+      modelRequests++;
+      return modelAnalysis;
+    },
+  };
+  const relevant = await evaluateJob(job, options);
+  assert.equal(relevant.verdict, 'apply');
+  assert.ok(relevant.matched.includes('Node.js'));
+
+  const tooSenior = await evaluateJob({
+    ...job,
+    description: 'Build Node.js services backed by PostgreSQL. Requires at least 10 years of experience.',
+  }, options);
+  assert.equal(tooSenior.verdict, 'skip');
+  assert.equal(modelRequests, 0, 'Local search must not contact the model');
+});
+
+test('an out-of-domain title needs more than one incidental skill match', async () => {
+  const options = {
+    careerProfile: { ...careerProfile, skills: [...careerProfile.skills, 'AWS'] },
+    localOnly: true,
+  };
+  const unrelated = await evaluateJob({
+    title: 'Manager - NDT Level III',
+    description: 'Supervise non-destructive testing and inspect welds under ASME, ASTM and AWS codes.',
+  }, options);
+  assert.deepEqual(unrelated.matched, ['AWS']);
+  assert.equal(unrelated.verdict, 'skip');
+
+  const adjacentRole = await evaluateJob({
+    title: 'Data Platform Engineer',
+    description: 'Maintain data ingestion services using Node.js and PostgreSQL, and collaborate with the platform team.',
+  }, options);
+  assert.equal(adjacentRole.verdict, 'apply');
+});
