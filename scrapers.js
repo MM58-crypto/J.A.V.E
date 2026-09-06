@@ -2,7 +2,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { loadCareerProfile } = require('./career-profile');
 const { evaluateJob } = require('./evaluator');
-const { COUNTRIES, MAX_AGE_HOURS, resolveCountries } = require('./search-options');
+const { COUNTRIES, PRIORITY_AGE_HOURS, resolveCountries } = require('./search-options');
 require('dotenv').config({ quiet: true });
 
 const LI_GUEST = 'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search';
@@ -50,8 +50,8 @@ function toHoursAgo(text, datetime, now) {
   return relativeHours(text);
 }
 
-function freshnessLabel(hours, dateOnly = false) {
-  if (dateOnly) return 'Posted today (time unknown)';
+function freshnessLabel(hours, dateOnly = false, postedAt) {
+  if (dateOnly && Number.isFinite(postedAt)) return `Posted ${new Date(postedAt).toISOString().slice(0, 10)} (time unknown)`;
   return hours < 1 ? '< 1 hr ago' : `${Math.floor(hours)} hr${hours >= 2 ? 's' : ''} ago`;
 }
 
@@ -76,26 +76,27 @@ function makeJob(fields, country, timeText, datetime) {
   const hoursAgo = toHoursAgo(timeText, datetime, now);
   const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(String(datetime || '').trim())
     && !Number.isFinite(relativeHours(timeText));
+  const postedAt = now - hoursAgo * 3_600_000;
   return {
     ...fields,
     country: country.code,
     countryName: country.name,
     hoursAgo,
-    postedAt: now - hoursAgo * 3_600_000,
+    postedAt,
     dateOnly,
-    freshnessLabel: freshnessLabel(hoursAgo, dateOnly),
+    freshnessLabel: freshnessLabel(hoursAgo, dateOnly, postedAt),
     description: fields.description || '',
   };
 }
 
-async function scrapeLinkedIn(keyword, country) {
+async function scrapeLinkedIn(keyword, country, recentOnly) {
   const params = new URLSearchParams({
     keywords: keyword,
     location: country.name,
     sortBy: 'DD',
-    f_TPR: 'r86400',
     start: '0',
   });
+  if (recentOnly) params.set('f_TPR', `r${PRIORITY_AGE_HOURS * 3600}`);
   const { data } = await axios.get(`${LI_GUEST}?${params}`, { headers: HEADERS, timeout: 12000 });
   const $ = cheerio.load(data);
   const jobs = [];
@@ -113,13 +114,13 @@ async function scrapeLinkedIn(keyword, country) {
   return jobs;
 }
 
-async function scrapeJSearch(keyword, country) {
+async function scrapeJSearch(keyword, country, recentOnly) {
   const { data } = await axios.get('https://jsearch.p.rapidapi.com/search', {
     params: {
       query: `${keyword} in ${country.name}`,
       page: '1',
       num_pages: '1',
-      date_posted: 'today',
+      date_posted: recentOnly ? 'today' : 'all',
       country: country.code.toLowerCase(),
     },
     headers: {
@@ -190,9 +191,9 @@ function rankJobs(jobs) {
   const priority = new Map(COUNTRIES.map((country, index) => [country.code, index]));
   const seen = new Set();
   return jobs.sort((a, b) =>
-    priority.get(a.country) - priority.get(b.country)
+    a.hoursAgo - b.hoursAgo
+      || priority.get(a.country) - priority.get(b.country)
       || b.evaluation.score - a.evaluation.score
-      || a.hoursAgo - b.hoursAgo
   ).filter(job => {
     const key = [job.country, job.location, job.title, job.company]
       .map(value => value.toLowerCase().replace(/\s+/g, ' ').trim()).join('|');
@@ -206,47 +207,56 @@ async function getJobs(keyword, options = {}) {
   const countries = resolveCountries(options.countries);
   const careerProfile = options.careerProfile || loadCareerProfile();
   const warnings = [];
-  let retrieved;
-  if (options.demo) {
-    retrieved = getDemoJobs(keyword, countries);
-  } else {
-    const requests = countries.flatMap(country => [
-      { country, source: 'LinkedIn', scrape: scrapeLinkedIn },
-      ...(process.env.JSEARCH_API_KEY ? [{ country, source: 'JSearch', scrape: scrapeJSearch }] : []),
-    ]);
-    const batches = await mapConcurrent(requests, async ({ country, source, scrape }) => {
+  let jobs = [];
+  for (const recentOnly of [true, false]) {
+    let retrieved;
+    if (options.demo) {
+      retrieved = getDemoJobs(keyword, countries);
+    } else {
+      const requests = countries.flatMap(country => [
+        { country, source: 'LinkedIn', scrape: scrapeLinkedIn },
+        ...(process.env.JSEARCH_API_KEY ? [{ country, source: 'JSearch', scrape: scrapeJSearch }] : []),
+      ]);
+      const batches = await mapConcurrent(requests, async ({ country, source, scrape }) => {
+        try {
+          return await scrape(keyword, country, recentOnly);
+        } catch {
+          warnings.push(`${country.name}: ${source} search failed; results may be incomplete.`);
+          return [];
+        }
+      });
+      retrieved = batches.flat();
+    }
+    const eligible = retrieved.filter(job => job.title && job.company
+      && Number.isFinite(job.hoursAgo) && job.hoursAgo >= 0
+      && (!recentOnly || job.hoursAgo < PRIORITY_AGE_HOURS)
+      && countryMatches(job, countries.find(country => country.code === job.country)));
+    const evaluated = await mapConcurrent(eligible, async job => {
       try {
-        return await scrape(keyword, country);
+        job.description = await loadDescription(job);
       } catch {
-        warnings.push(`${country.name}: ${source} search failed; results may be incomplete.`);
-        return [];
+        job.description = '';
       }
+      if (!job.description.trim()) {
+        warnings.push(`${job.countryName}: ${job.source} description unavailable; a posting was excluded.`);
+      }
+      job.evaluation = await evaluateJob(job, { careerProfile, localOnly: true });
+      return job;
     });
-    retrieved = batches.flat();
+    const now = Date.now();
+    jobs = rankJobs(evaluated.filter(job => {
+      // Recheck the five-hour boundary after descriptions finish loading.
+      job.hoursAgo = (now - job.postedAt) / 3_600_000;
+      job.freshnessLabel = freshnessLabel(job.hoursAgo, job.dateOnly, job.postedAt);
+      return job.evaluation.verdict === 'apply'
+        && Number.isFinite(job.hoursAgo) && job.hoursAgo >= 0
+        && (!recentOnly || job.hoursAgo < PRIORITY_AGE_HOURS);
+    }));
+    if (!recentOnly && jobs[0]?.hoursAgo < PRIORITY_AGE_HOURS) {
+      jobs = jobs.filter(job => job.hoursAgo < PRIORITY_AGE_HOURS);
+    }
+    if (jobs.length || options.demo) break;
   }
-  const eligible = retrieved.filter(job => job.title && job.company
-    && Number.isFinite(job.hoursAgo) && job.hoursAgo >= 0 && job.hoursAgo < MAX_AGE_HOURS
-    && countryMatches(job, countries.find(country => country.code === job.country)));
-  const evaluated = await mapConcurrent(eligible, async job => {
-    try {
-      job.description = await loadDescription(job);
-    } catch {
-      job.description = '';
-    }
-    if (!job.description.trim()) {
-      warnings.push(`${job.countryName}: ${job.source} description unavailable; a posting was excluded.`);
-    }
-    job.evaluation = await evaluateJob(job, { careerProfile, localOnly: true });
-    return job;
-  });
-  const now = Date.now();
-  const jobs = rankJobs(evaluated.filter(job => {
-    // Description requests can take a posting past the cutoff before display.
-    job.hoursAgo = (now - job.postedAt) / 3_600_000;
-    job.freshnessLabel = freshnessLabel(job.hoursAgo, job.dateOnly);
-    return job.evaluation.verdict === 'apply'
-      && Number.isFinite(job.hoursAgo) && job.hoursAgo >= 0 && job.hoursAgo < MAX_AGE_HOURS;
-  }));
   const sources = options.demo ? { Demo: 0 } : { LinkedIn: 0, JSearch: 0 };
   for (const job of jobs) sources[job.source] = (sources[job.source] || 0) + 1;
   return { jobs, sources, warnings: [...new Set(warnings)].sort(), countries };

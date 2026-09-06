@@ -5,7 +5,7 @@ const COUNTRIES = [
   { code: 'SA', name: 'Saudi Arabia' },
 ];
 const DEFAULT_COUNTRIES = ['MY', 'OM'];
-const MAX_AGE_HOURS = 24;
+const PRIORITY_AGE_HOURS = 5;
 
 function resolveCountries(codes = DEFAULT_COUNTRIES) {
   if (!Array.isArray(codes) || codes.length === 0) {
@@ -79,7 +79,7 @@ async function promptCountries(defaults = DEFAULT_COUNTRIES) {
 
 function searchScope(countries) {
   const names = resolveCountries(countries).map(country => country.name).join(', ');
-  return `Countries: ${names} | Last ${MAX_AGE_HOURS} hours only (verified age < ${MAX_AGE_HOURS}h) | Local career-profile match required`;
+  return `Countries: ${names} | Under ${PRIORITY_AGE_HOURS} hours first; otherwise older matches | Newest first, then country and local match score`;
 }
 
 function cliHelp(command) {
@@ -89,11 +89,13 @@ function cliHelp(command) {
     '',
     '  --countries CODES  Comma-separated codes or full names (also --countries=MY,OM).',
     '                     MY Malaysia, OM Oman, SG Singapore, SA Saudi Arabia.',
-    '                     Default priority: Malaysia, then Oman; checkbox selection if omitted.',
+    '                     Default selection: Malaysia and Oman; checkbox selection if omitted.',
     ...(scout ? ['  --demo             Use clearly synthetic country-specific jobs; no API keys required.'] : []),
     '  --help, -h         Show help without loading profiles/resumes or accessing the network.',
     '',
-    `Only verified postings younger than ${MAX_AGE_HOURS} hours with a local career-profile match are displayed.`,
+    `Prioritize verified postings younger than ${PRIORITY_AGE_HOURS} hours with a local career-profile match.`,
+    'If none match, search older postings without an age limit. Results are newest-first;',
+    'country priority and local match score only break ties.',
     'Source failures are reported separately; displayed source counts include only matching jobs.',
   ].join('\n');
 }
@@ -101,7 +103,7 @@ function cliHelp(command) {
 module.exports = {
   COUNTRIES,
   DEFAULT_COUNTRIES,
-  MAX_AGE_HOURS,
+  PRIORITY_AGE_HOURS,
   resolveCountries,
   parseCliOptions,
   readCliOptions,

@@ -47,11 +47,71 @@ function jsearchJob(overrides = {}) {
   };
 }
 
-test('timestamp authority and conservative date bounds exclude unverified, future and 24-hour postings', async t => {
+test('under-five-hour matches outrank country and score without searching older postings', async t => {
+  setup(t, true);
+  t.mock.method(axios, 'get', async (url, options) => {
+    if (url.includes('jobs-guest')) {
+      assert.equal(new URL(url).searchParams.get('f_TPR'), 'r18000');
+      return { data: '' };
+    }
+    assert.equal(options.params.date_posted, 'today');
+    if (options.params.country === 'om') {
+      return { data: { data: [jsearchJob({
+        employer_name: 'Oman recent', job_country: 'OM', job_city: 'Muscat',
+        job_posted_at_datetime_utc: '2026-09-05T11:00:00Z',
+      })] } };
+    }
+    return { data: { data: [
+      jsearchJob({ employer_name: 'Higher score', job_posted_at_datetime_utc: '2026-09-05T08:00:00Z' }),
+      jsearchJob({
+        employer_name: 'Newest lower score', job_title: 'Developer',
+        job_posted_at_datetime_utc: '2026-09-05T11:30:00Z',
+      }),
+      jsearchJob({ employer_name: 'Exactly five hours', job_posted_at_datetime_utc: '2026-09-05T07:00:00Z' }),
+      jsearchJob({ employer_name: 'Older', job_posted_at_datetime_utc: '2026-09-04T12:00:00Z' }),
+    ] } };
+  });
+  const result = await getJobs('Backend Engineer', { countries: ['MY', 'OM'], careerProfile });
+  assert.deepEqual(result.jobs.map(job => job.company), ['Newest lower score', 'Oman recent', 'Higher score']);
+  assert.ok(result.jobs[0].evaluation.score < result.jobs[2].evaluation.score);
+  assert.deepEqual(result.sources, { LinkedIn: 0, JSearch: 3 });
+});
+
+test('no recent profile matches triggers older fallback in newest-first order across providers', async t => {
+  setup(t, true);
+  t.mock.method(axios, 'get', async (url, options) => {
+    if (url.includes('jobs-guest')) {
+      const params = new URL(url).searchParams;
+      if (params.has('f_TPR')) return { data: card({ company: 'Unrelated', title: 'Pastry Chef', relative: '1 hour ago' }) };
+      return { data: [
+        card({ company: 'Oldest', relative: '3 days ago' }),
+        card({ company: 'Day old', relative: '24 hours ago' }),
+      ].join('') };
+    }
+    if (url.includes('jsearch')) {
+      if (options.params.date_posted === 'today') return { data: { data: [] } };
+      return { data: { data: [jsearchJob({
+        employer_name: 'Five-hour fallback', job_title: 'Developer',
+        job_posted_at_datetime_utc: '2026-09-05T07:00:00Z',
+      })] } };
+    }
+    return { data: `<div class="show-more-less-html__markup">${url.endsWith('/Unrelated')
+      ? 'Prepare pastries and desserts, manage kitchen stock and maintain food hygiene. Requires 2 years of culinary experience.'
+      : description}</div>` };
+  });
+  const result = await getJobs('Backend Engineer', { countries: ['MY'], careerProfile });
+  assert.deepEqual(result.jobs.map(job => [job.company, job.hoursAgo]), [
+    ['Five-hour fallback', 5], ['Day old', 24], ['Oldest', 72],
+  ]);
+  assert.ok(result.jobs[0].evaluation.score < result.jobs[1].evaluation.score);
+  assert.deepEqual(result.sources, { LinkedIn: 2, JSearch: 1 });
+});
+
+test('fallback preserves timestamp authority and rejects unverified or future posting times', async t => {
   setup(t);
   const candidates = [
-    { company: 'Exact fresh', datetime: '2026-09-05T11:00:00Z', relative: '2 days ago' },
-    { company: 'Offset fresh', datetime: '2026-09-05T12:30:00+02:00' },
+    { company: 'Exact time', datetime: '2026-09-05T07:00:00Z', relative: '2 days ago' },
+    { company: 'Offset time', datetime: '2026-09-05T08:00:00+02:00' },
     { company: 'Relative fresh', relative: '23 hours ago' },
     { company: 'Date today', datetime: '2026-09-05' },
     { company: 'Date with hour precision', datetime: '2026-09-05', relative: '5 hours ago' },
@@ -59,6 +119,7 @@ test('timestamp authority and conservative date bounds exclude unverified, futur
     { company: 'Contradictory stale label', datetime: '2026-09-05', relative: '2 days ago' },
     { company: 'Boundary', datetime: '2026-09-04T12:00:00Z', relative: '1 minute ago' },
     { company: 'Stale exact', datetime: '2026-09-03T12:00:00Z', relative: 'just now' },
+    { company: 'Old date only', datetime: '2026-09-03' },
     { company: 'Future', datetime: '2026-09-05T13:00:00Z', relative: 'just now' },
     { company: 'Future day', datetime: '2026-09-06' },
     { company: 'Ambiguous yesterday', datetime: '2026-09-04', relative: '1 hour ago' },
@@ -78,28 +139,34 @@ test('timestamp authority and conservative date bounds exclude unverified, futur
   });
   const result = await getJobs('Backend Engineer', { countries: ['MY'], careerProfile });
   assert.deepEqual(result.jobs.map(job => job.company), [
-    'Exact fresh', 'Offset fresh', 'Date with hour precision', 'Date today', 'Relative fresh', 'Recent yesterday',
+    'Exact time', 'Date with hour precision', 'Offset time', 'Date today', 'Relative fresh', 'Recent yesterday',
+    'Boundary', 'Relative boundary', 'Stale exact', 'Old date only',
   ]);
   assert.equal(result.jobs.find(job => job.company === 'Date with hour precision').hoursAgo, 5);
-  assert.equal(descriptionRequests.length, 6);
-  assert.equal(result.sources.LinkedIn, 6);
-  assert.ok(result.jobs.every(job => job.hoursAgo >= 0 && job.hoursAgo < 24));
+  assert.equal(descriptionRequests.length, 10);
+  assert.equal(result.sources.LinkedIn, 10);
+  assert.equal(result.jobs.find(job => job.company === 'Old date only').hoursAgo, 60);
+  assert.match(result.jobs.find(job => job.company === 'Old date only').freshnessLabel, /2026-09-03.*time unknown/);
 });
 
-test('a posting that expires while its description is loading is excluded before display', async t => {
+test('crossing five hours while loading descriptions triggers fallback instead of an empty list', async t => {
   setup(t);
   let current = now;
   t.mock.method(Date, 'now', () => current);
+  const windows = [];
   t.mock.method(axios, 'get', async url => {
     if (url.includes('jobs-guest')) {
-      return { data: card({ datetime: '2026-09-04T12:00:01Z' }) };
+      windows.push(new URL(url).searchParams.get('f_TPR'));
+      return { data: card({ datetime: '2026-09-05T07:00:01Z' }) };
     }
     current += 2000;
     return { data: `<div class="show-more-less-html__markup">${description}</div>` };
   });
   const result = await getJobs('Backend Engineer', { countries: ['MY'], careerProfile });
-  assert.deepEqual(result.jobs, []);
-  assert.deepEqual(result.sources, { LinkedIn: 0, JSearch: 0 });
+  assert.deepEqual(windows, ['r18000', null]);
+  assert.deepEqual(result.jobs.map(job => job.company), ['Example']);
+  assert.ok(result.jobs[0].hoursAgo > 5);
+  assert.deepEqual(result.sources, { LinkedIn: 1, JSearch: 0 });
 });
 
 test('all four countries scope both providers and reject leaked or unverified remote locations', async t => {
@@ -112,8 +179,6 @@ test('all four countries scope both providers and reject leaked or unverified re
       const params = new URL(url).searchParams;
       requests.push(params.get('location'));
       assert.equal(params.get('location'), selected[1]);
-      assert.equal(params.has('geoId'), false);
-      assert.equal(params.get('f_TPR'), 'r86400');
       assert.equal(params.get('keywords'), 'Backend Engineer');
       return { data: [
         card({ company: 'Local LinkedIn', location: selected[1], relative: '1 hour ago' }),
@@ -125,7 +190,6 @@ test('all four countries scope both providers and reject leaked or unverified re
     if (url.includes('jsearch')) {
       assert.equal(options.params.country, selected[0].toLowerCase());
       assert.equal(options.params.query, `Backend Engineer in ${selected[1]}`);
-      assert.equal(options.params.date_posted, 'today');
       return { data: { data: [
         jsearchJob({ job_country: selected[0], job_city: '', employer_name: 'Local JSearch' }),
         jsearchJob({ job_country: 'US', job_city: 'Remote', employer_name: 'Wrong JSearch' }),
@@ -145,24 +209,41 @@ test('all four countries scope both providers and reject leaked or unverified re
   assert.deepEqual(requests, countries.map(country => country[1]));
 });
 
-test('dedup retains distinct locations and countries while sorting country priority before freshness', async t => {
+test('dedup retains distinct locations and countries while sorting freshness before country priority', async t => {
   setup(t);
   t.mock.method(axios, 'get', async url => {
     if (!url.includes('jobs-guest')) return { data: `<div class="show-more-less-html__markup">${description}</div>` };
     const country = new URL(url).searchParams.get('location');
     return { data: (country === 'Malaysia' ? [
-      card({ location: 'Kuala Lumpur, Malaysia', relative: '5 hours ago', id: 'kl-old' }),
-      card({ location: 'Kuala Lumpur, Malaysia', relative: '4 hours ago', id: 'kl-new' }),
-      card({ location: 'Penang, Malaysia', relative: '6 hours ago', id: 'penang' }),
+      card({ location: 'Kuala Lumpur, Malaysia', relative: '4 hours ago', id: 'kl-old' }),
+      card({ location: 'Kuala Lumpur, Malaysia', relative: '3 hours ago', id: 'kl-new' }),
+      card({ location: 'Penang, Malaysia', relative: '270 minutes ago', id: 'penang' }),
     ] : [card({ location: 'Muscat, Oman', relative: '1 hour ago', id: 'muscat' })]).join('') };
   });
   const result = await getJobs('Backend Engineer', { countries: ['OM', 'MY'], careerProfile });
   assert.deepEqual(result.jobs.map(job => [job.country, job.location, job.hoursAgo]), [
-    ['MY', 'Kuala Lumpur, Malaysia', 4],
-    ['MY', 'Penang, Malaysia', 6],
     ['OM', 'Muscat, Oman', 1],
+    ['MY', 'Kuala Lumpur, Malaysia', 3],
+    ['MY', 'Penang, Malaysia', 4.5],
   ]);
   assert.equal(result.sources.LinkedIn, 3);
+});
+
+test('newly available fresh matches in the broader search still exclude older postings', async t => {
+  setup(t);
+  t.mock.method(axios, 'get', async url => {
+    if (url.includes('jobs-guest')) {
+      if (new URL(url).searchParams.has('f_TPR')) return { data: '' };
+      return { data: [
+        card({ company: 'Newly available', relative: '1 hour ago' }),
+        card({ company: 'Older', relative: '2 days ago' }),
+      ].join('') };
+    }
+    return { data: `<div class="show-more-less-html__markup">${description}</div>` };
+  });
+  const result = await getJobs('Backend Engineer', { countries: ['MY'], careerProfile });
+  assert.deepEqual(result.jobs.map(job => job.company), ['Newly available']);
+  assert.deepEqual(result.sources, { LinkedIn: 1, JSearch: 0 });
 });
 
 test('local relevance uses retrieved descriptions and rejects unrelated roles and unavailable evidence', async t => {

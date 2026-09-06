@@ -2,6 +2,7 @@
 
 const {
   DEFAULT_COUNTRIES,
+  PRIORITY_AGE_HOURS,
   readCliOptions,
   promptCountries,
   searchScope,
@@ -23,14 +24,14 @@ const {
 // ── color by freshness ────────────────────────────────────────────────────────
 
 function colorFreshness(label, hours) {
-  if (hours <  1)  return chalk.greenBright(label);
-  if (hours < 24)  return chalk.yellow(label);
+  if (hours < PRIORITY_AGE_HOURS) return chalk.greenBright(label);
+  if (hours < 24) return chalk.yellow(label);
   return chalk.gray(label);
 }
 
 function colorTitle(title, hours) {
-  if (hours <  1)  return chalk.greenBright.bold(title);
-  if (hours < 24)  return chalk.white.bold(title);
+  if (hours < PRIORITY_AGE_HOURS) return chalk.greenBright.bold(title);
+  if (hours < 24) return chalk.white.bold(title);
   return chalk.gray(title);
 }
 
@@ -174,7 +175,7 @@ async function showList(jobs, keyword, sources, state) {
   }
 
   if (jobs.length === 0) {
-    console.log(chalk.yellow('  No verified postings younger than 24 hours matched your local career profile in the selected countries.\n'));
+    console.log(chalk.yellow('  No verified postings matched your local career profile in the selected countries, including older postings.\n'));
     if (state.warnings.length) {
       console.log(chalk.yellow('  Search coverage was incomplete; unavailable sources may have matching jobs.\n'));
     }
@@ -186,7 +187,11 @@ async function showList(jobs, keyword, sources, state) {
     process.exit(0);
   }
 
-  console.log(chalk.dim(`  Found ${jobs.length} locally matched job(s) from the last 24 hours. Use arrow keys to select.\n`));
+  const recent = jobs[0].hoursAgo < PRIORITY_AGE_HOURS;
+  console.log(chalk.dim(`  Found ${jobs.length} locally matched job(s), newest first. Use arrow keys to select.`));
+  console.log(recent
+    ? chalk.greenBright(`  Priority: all postings are under ${PRIORITY_AGE_HOURS} hours old.\n`)
+    : chalk.yellow(`  No verified matches under ${PRIORITY_AGE_HOURS} hours; showing the newest available older postings.\n`));
 
   const choices = [
     ...buildChoices(jobs),

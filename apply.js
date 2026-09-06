@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const {
+  PRIORITY_AGE_HOURS,
   readCliOptions,
   promptCountries,
   searchScope,
@@ -141,7 +142,7 @@ async function main() {
   if (sourceSummary.length) console.log(chalk.dim(`  Displayed sources: ${sourceSummary.join(' · ')}\n`));
 
   if (!jobs.length) {
-    console.log(chalk.yellow('  No verified postings younger than 24 hours matched your local career profile in the selected countries.\n'));
+    console.log(chalk.yellow('  No verified postings matched your local career profile in the selected countries, including older postings.\n'));
     if (warnings.length) {
       console.log(chalk.yellow('  Search coverage was incomplete; unavailable sources may have matching jobs.\n'));
     }
@@ -150,7 +151,10 @@ async function main() {
 
   const resumeConfig = loadResumeConfig();
   const batch = jobs.slice(0, MAX_JOBS);
-  console.log(chalk.dim(`  Found ${jobs.length} locally matched jobs from the last 24 hours — processing up to ${batch.length}.\n`));
+  console.log(chalk.dim(`  Found ${jobs.length} locally matched jobs, newest first — processing up to ${batch.length}.`));
+  console.log(jobs[0].hoursAgo < PRIORITY_AGE_HOURS
+    ? chalk.greenBright(`  Priority: all postings are under ${PRIORITY_AGE_HOURS} hours old.\n`)
+    : chalk.yellow(`  No verified matches under ${PRIORITY_AGE_HOURS} hours; processing the newest available older postings.\n`));
 
   let submitted = 0;
   let confirmed = 0;
