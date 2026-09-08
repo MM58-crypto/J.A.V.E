@@ -25,7 +25,7 @@ const {
 } = require('./resume-selector');
 require('dotenv').config({ quiet: true });
 
-const MAX_JOBS      = 15;
+const MAX_JOBS      = 20;
 const LOG_FILE      = './applications.json';
 const SCORE_THRESHOLD = 50;
 
