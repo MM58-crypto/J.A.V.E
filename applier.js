@@ -64,8 +64,54 @@ function loadApplicationProfile() {
   };
 }
 
-async function getFormRoot(page) {
-  return await page.$('div[role="dialog"]') || page;
+// Runs in the page for both waiting and subsequent form lookups.
+function findEasyApplyRoot() {
+  const visible = element => !element.closest('[hidden], [aria-hidden="true"], [inert]')
+    && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+  const navigation = /^(next|continue|review|review application|submit|submit application)$|continue to next step/i;
+  const candidates = document.querySelectorAll(
+    'dialog, [role="dialog"], [aria-modal="true"], .jobs-easy-apply-modal, .artdeco-modal',
+  );
+
+  for (const root of candidates) {
+    if (!visible(root)) continue;
+    const labelledBy = (root.getAttribute('aria-labelledby') || '').split(/\s+/)
+      .map(id => document.getElementById(id)?.textContent || '').join(' ');
+    const name = [
+      root.getAttribute('aria-label') || '',
+      labelledBy,
+      root.querySelector('h1, h2, h3, [role="heading"]')?.innerText || '',
+    ].join(' ');
+    const isEasyApply = root.matches('.jobs-easy-apply-modal')
+      || root.querySelector('.jobs-easy-apply-modal, .jobs-easy-apply-content')
+      || /\beasy\s+apply\b|\bapply\s+to\b/i.test(name);
+    if (!isEasyApply) continue;
+
+    // A visible shell can precede the form. Do not advance on its Close button.
+    const ready = Array.from(root.querySelectorAll('input, select, textarea, button')).some(element => {
+      if (element.disabled || !visible(element)) return false;
+      if (element.tagName !== 'BUTTON') return element.type !== 'hidden';
+      return [element.innerText, element.getAttribute('aria-label')]
+        .some(text => navigation.test((text || '').trim()));
+    });
+    if (ready) return root;
+  }
+  return null;
+}
+
+async function getFormRoot(page, wait = false) {
+  let handle;
+  try {
+    handle = wait
+      ? await page.waitForFunction(findEasyApplyRoot, { timeout: 10000 })
+      : await page.evaluateHandle(findEasyApplyRoot);
+  } catch (error) {
+    if (error.name !== 'TimeoutError') throw error;
+    throw new Error('Easy Apply form was not detected: no visible application dialog with loaded controls. Check the open form markup or login state.', { cause: error });
+  }
+  const root = handle.asElement();
+  if (!root) await handle.dispose();
+  return root;
 }
 
 async function inspectElement(page, element) {
@@ -104,7 +150,7 @@ function createRecord(label, type, value, source, required = false) {
 
 async function fillTextFields(page, root, profile, ask) {
   const records = [];
-  const inputs = await root.$$('input[type="text"], input[type="number"], input[type="email"], input[type="tel"], textarea');
+  const inputs = await root.$$('input:not([type]), input[type="text"], input[type="number"], input[type="email"], input[type="tel"], textarea');
 
   for (const input of inputs) {
     const field = await inspectElement(page, input);
@@ -132,6 +178,24 @@ async function fillTextFields(page, root, profile, ask) {
   return records;
 }
 
+function matchSelectOption(options, requested, dialCode) {
+  const normalizedRequest = normalize(requested);
+  if (!normalizedRequest) return null;
+  const exact = options.filter(option => normalize(option.text) === normalizedRequest
+    || normalize(option.value) === normalizedRequest);
+  if (exact.length) return exact.length === 1 ? exact[0] : null;
+
+  if (dialCode) {
+    const matches = options.filter(option => {
+      const [, country, code] = option.text.match(/^(.*?)\s*\((\+\d+)\)$/) || [];
+      return normalize(country) === normalizedRequest || code === normalizedRequest;
+    });
+    return matches.length === 1 ? matches[0] : null;
+  }
+  return options.find(option => normalize(option.text).includes(normalizedRequest)
+    || normalizedRequest.includes(normalize(option.text)));
+}
+
 async function fillSelectFields(page, root, profile, ask) {
   const records = [];
   const selects = await root.$$('select');
@@ -146,29 +210,47 @@ async function fillSelectFields(page, root, profile, ask) {
       selected: option.selected,
       disabled: option.disabled,
     })), select);
+    const available = options.filter(option => option.value && !option.disabled);
+    const dialCode = available.length > 0 && available.every(option => /\(\+\d+\)$/.test(option.text));
+    let requested = resolveField(field.label, profile);
+    let fillingProfilePhone = false;
+    if (dialCode) {
+      // Select the prefix before typing a new profile phone number. A select
+      // without a placeholder otherwise looks answered at its first option.
+      const phones = await root.$$('input[type="tel"]');
+      for (const phone of phones) {
+        const metadata = await inspectElement(page, phone);
+        if (metadata.visible && !metadata.value.trim() && resolveField(metadata.label, profile) !== null) {
+          fillingProfilePhone = true;
+        }
+        await phone.dispose();
+      }
+    }
     const selected = options.find(option => option.selected && option.value && !option.disabled);
-    if (selected) {
+    if (selected && !fillingProfilePhone) {
       records.push(createRecord(field.label, 'select', selected.text, 'existing', field.required));
       continue;
     }
 
-    let requested = resolveField(field.label, profile);
     let source = 'profile';
-    if (requested === null) {
-      const available = options.filter(option => option.value && !option.disabled).map(option => option.text);
-      requested = await ask(`Choose "${field.label}" from: ${available.join(', ')}`);
+    let match = matchSelectOption(available, requested, dialCode);
+    if (requested === null || (dialCode && !match)) {
+      requested = await ask(`Choose "${field.label}" from: ${available.map(option => option.text).join(', ')}`);
       source = requested ? 'user' : 'unresolved';
+      match = matchSelectOption(available, requested, dialCode);
     }
 
-    const normalizedRequest = normalize(requested);
-    const available = options.filter(option => option.value && !option.disabled);
-    const match = available.find(option => normalize(option.text) === normalizedRequest)
-      || available.find(option => normalize(option.text).includes(normalizedRequest) || normalizedRequest.includes(normalize(option.text)));
 
-    if (match && normalizedRequest) {
+    if (match) {
       await select.select(match.value);
       records.push(createRecord(field.label, 'select', match.text, source, field.required));
     } else {
+      // Do not leave a valid-looking implicit default after an unresolved choice.
+      if (dialCode) await select.evaluate(element => {
+        element.selectedIndex = -1;
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+      });
       records.push(createRecord(field.label, 'select', '', 'unresolved', field.required));
     }
   }
@@ -286,16 +368,20 @@ async function fillFormStep(page, profile, resumePath, options = {}) {
   const delayMs = options.delayMs ?? APPLY_DELAY_MS;
   if (delayMs) await delay(delayMs);
 
-  const root = await getFormRoot(page);
-  const fields = [
-    ...await fillTextFields(page, root, profile, ask),
-    ...await fillSelectFields(page, root, profile, ask),
-    ...await fillRadioFields(page, root, profile, ask),
-    ...await fillCheckboxFields(page, root, profile, ask),
-    ...await uploadResume(page, root, resumePath),
-  ];
-  const unresolvedRequired = fields.filter(field => field.required && !field.value);
-  return { fields, unresolvedRequired };
+  const root = await getFormRoot(page, true);
+  try {
+    const fields = [
+      ...await fillSelectFields(page, root, profile, ask),
+      ...await fillTextFields(page, root, profile, ask),
+      ...await fillRadioFields(page, root, profile, ask),
+      ...await fillCheckboxFields(page, root, profile, ask),
+      ...await uploadResume(page, root, resumePath),
+    ];
+    const unresolvedRequired = fields.filter(field => field.required && !field.value);
+    return { fields, unresolvedRequired };
+  } finally {
+    await root.dispose();
+  }
 }
 
 function mergeReviewFields(reviewFields, fields) {
@@ -333,19 +419,28 @@ async function reviewAndConfirm(page, job, reviewFields, profile, resumePath, op
   }
 }
 
-async function findButton(page, patterns) {
-  const root = await getFormRoot(page);
-  const buttons = await root.$$('button');
-
-  for (const button of buttons) {
-    const details = await page.evaluate(el => ({
-      text: `${el.innerText || ''} ${el.getAttribute('aria-label') || ''}`.trim(),
-      available: !el.disabled && Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
-    }), button);
-    if (details.available && patterns.some(pattern => pattern.test(details.text))) return button;
+async function findButton(page, patterns, withinForm = true) {
+  const root = withinForm ? await getFormRoot(page) : page;
+  if (!root) return null;
+  try {
+    const buttons = await root.$$('button');
+    let match = null;
+    for (const button of buttons) {
+      const details = await page.evaluate(el => ({
+        labels: [el.innerText || '', el.getAttribute('aria-label') || ''].map(text => text.trim()),
+        available: !el.disabled && !el.closest('[hidden], [aria-hidden="true"], [inert]')
+          && el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }),
+      }), button);
+      if (!match && details.available && details.labels.some(text => patterns.some(pattern => pattern.test(text)))) {
+        match = button;
+      } else {
+        await button.dispose();
+      }
+    }
+    return match;
+  } finally {
+    if (withinForm) await root.dispose();
   }
-
-  return null;
 }
 
 async function isExternalRedirect(page) {
@@ -432,13 +527,12 @@ async function applyToJob(job, resumePath, options = {}) {
       return { status: 'skipped', reason: 'external_redirect' };
     }
 
-    const easyApplyButton = await findButton(page, [/easy apply/i]);
+    const easyApplyButton = await findButton(page, [/easy apply/i], false);
     if (!easyApplyButton) {
       return { status: 'skipped', reason: 'no_easy_apply' };
     }
 
     await easyApplyButton.click();
-    await page.waitForSelector('div[role="dialog"]', { timeout: 10000 });
 
     for (let step = 1; step <= MAX_STEPS; step++) {
       if (await isExternalRedirect(page)) {

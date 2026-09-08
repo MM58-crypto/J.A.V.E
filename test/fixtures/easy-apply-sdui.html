@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Supplied Easy Apply SDUI structure</title></head>
+<body>
+  <label for="background-email">Email address</label><input id="background-email" type="email">
+  <button id="background-submit">Submit application</button>
+  <div role="dialog" aria-label="Easy Apply" hidden>
+    <label for="stale-email">Email address</label><input id="stale-email" type="email">
+  </div>
+  <section role="dialog" aria-label="Account settings">
+    <label for="unrelated-phone">Mobile phone number</label><input id="unrelated-phone" type="tel">
+  </section>
+  <button id="launch">Easy Apply</button>
+  <!-- Sanitized from the supplied DOM: no account details, images, or generated classes. -->
+  <template id="contact-template">
+    <dialog data-testid="dialog" aria-labelledby="dialog-header" open>
+      <button type="button" aria-label="Dismiss">Dismiss</button>
+      <div>
+        <header id="dialog-header"><h2>Apply to Example Company</h2></header>
+        <div data-testid="dialog-content">
+          <div data-sdui-screen="com.linkedin.sdui.flagshipnav.jobs.easyapply.EasyApply"
+               data-sdui-destination-screen="com.linkedin.sdui.flagshipnav.jobs.easyapply.EasyApply">
+            <div data-display-contents="true">
+              <div data-testid="lazy-column" data-component-type="LazyColumn">
+                <p>Contact info</p>
+                <div>
+                  <label for="«r8»"><div>Email address*</div></label>
+                  <div><select id="«r8»" required>
+                    <option value="account@example.invalid">account@example.invalid</option>
+                  </select></div>
+                </div>
+                <div>
+                  <label for="«ra»"><div>Phone country code*</div></label>
+                  <div><select id="«ra»" required>
+                    <option value="ad">Andorra (+376)</option>
+                    <option value="ae">United Arab Emirates (+971)</option>
+                    <option value="bs">Bahamas (+1242)</option>
+                    <option value="ca">Canada (+1)</option>
+                    <option value="sa">Saudi Arabia (+966)</option>
+                    <option value="us">United States (+1)</option>
+                  </select></div>
+                </div>
+                <div componentkey="easyApplyFieldFocus_ea.q::PHONE_MOBILE::phoneNumber.validation">
+                  <label for="«rc»"><div>Mobile phone number*</div></label>
+                  <div><input required id="«rc»" dir="auto" aria-describedby="«rc»-info" type="tel" value=""></div>
+                </div>
+              </div>
+              <footer><button id="next" type="button"><span><span>Next</span></span></button></footer>
+            </div>
+          </div>
+        </div>
+      </div>
+      <section><h2 data-testid="toasts-title">0 notifications</h2></section>
+    </dialog>
+  </template>
+  <script>
+    window.fixtureEvents = [];
+    window.firstStepValues = null;
+    function record(event) {
+      window.fixtureEvents.push(event);
+      window.reportFixtureEvent?.(event);
+    }
+    document.getElementById('background-submit').onclick = () => record('background-submit');
+    document.getElementById('launch').onclick = () => {
+      record('launch');
+      setTimeout(() => {
+        document.body.appendChild(document.getElementById('contact-template').content.cloneNode(true));
+        const dialog = document.querySelector('dialog');
+        record('mounted');
+        document.getElementById('next').onclick = () => {
+          const fields = { email: '«r8»', 'country-code': '«ra»', phone: '«rc»' };
+          if (!Object.values(fields).every(id => document.getElementById(id).checkValidity())) return;
+          window.firstStepValues = Object.fromEntries(
+            Object.entries(fields).map(([name, id]) => [name, document.getElementById(id).value])
+          );
+          record('next');
+          dialog.innerHTML = '<header id="dialog-header"><h2>Apply to Example Company</h2></header><p id="review-step">Review your application</p><button id="submit">Submit application</button>';
+          document.getElementById('submit').onclick = () => {
+            record('application-submit');
+            dialog.innerHTML = '<p>Application was sent</p>';
+          };
+        };
+      }, 150);
+    };
+  </script>
+</body>
+</html>

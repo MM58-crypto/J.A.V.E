@@ -182,6 +182,12 @@ node apply.js "Software Engineer" --countries MY,OM
 13. Submit only when you explicitly type `SUBMIT`; `EDIT` returns to review and `CANCEL` exits without submission
 14. Record confirmed, unconfirmed, cancelled, skipped, incomplete, and failed outcomes in `applications.json`
 
+Easy Apply detection waits for a visible application form with loaded controls. It supports native `<dialog>` elements, ARIA dialog/modal containers, and LinkedIn Easy Apply modal wrappers, using application labels/headings or LinkedIn classes to distinguish them from unrelated dialogs. Filling and Next/Review/Submit actions stay inside that form; hidden dialogs and background-page controls are ignored. Existing answers are preserved, and submission still requires typing `SUBMIT`.
+
+Before filling a blank phone field from the private profile, JAVE selects its configured phone country code instead of accepting the dropdown's implicit first option. Dial codes match exactly: a shared code such as `+1` prompts for a country rather than picking the first match. An unanswered choice stays unresolved and blocks progression when required. Existing phone/contact answers, including the account email selection, are preserved.
+
+If the application form cannot be identified, JAVE stops rather than entering private information elsewhere on the page. Check that Chromium is signed in and the Easy Apply form opens. For an unsupported layout, capture the outer dialog wrapper, field labels/controls, and navigation buttons, with personal values redacted. Dialog identification and navigation currently recognize English application labels.
+
 ---
 
 ## Resume Tailoring and PII Boundary

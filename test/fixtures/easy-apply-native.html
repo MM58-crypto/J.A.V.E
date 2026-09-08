@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Local LinkedIn job fixture</title>
+</head>
+<body>
+  <label for="background-email">Email address</label>
+  <input id="background-email" type="email">
+  <button id="background-next">Next</button>
+  <button id="background-submit">Submit application</button>
+  <div role="dialog" aria-label="Easy Apply" hidden>
+    <label for="stale-email">Email address</label>
+    <input id="stale-email" type="email">
+    <button id="stale-submit">Submit application</button>
+  </div>
+  <section role="dialog" aria-label="Notification preferences">
+    <label for="unrelated-phone">Mobile phone number</label>
+    <input id="unrelated-phone" type="tel">
+    <button id="unrelated-submit">Submit application</button>
+  </section>
+  <button id="launch">Easy Apply</button>
+  <script>
+    window.fixtureEvents = [];
+    window.firstStepValues = null;
+    function record(event) {
+      window.fixtureEvents.push(event);
+      window.reportFixtureEvent(event);
+    }
+    for (const id of ['background-next', 'background-submit', 'stale-submit', 'unrelated-submit']) {
+      document.getElementById(id).addEventListener('click', () => record(id));
+    }
+    document.getElementById('launch').addEventListener('click', () => {
+      record('launch');
+      setTimeout(() => {
+        const dialog = document.createElement('dialog');
+        dialog.id = 'application';
+        dialog.setAttribute('aria-labelledby', 'application-title');
+        dialog.innerHTML = `
+          <h2 id="application-title">Apply to Example Company</h2>
+          <label for="first-name">First name</label>
+          <input id="first-name" required>
+          <label for="email">Email address</label>
+          <input id="email" type="email" required>
+          <label for="country-code">Phone country code</label>
+          <select id="country-code" required>
+            <option value="">Choose one</option>
+            <option value="gb">United Kingdom (+44)</option>
+            <option value="us">United States (+1)</option>
+          </select>
+          <label for="phone">Mobile phone number</label>
+          <input id="phone" type="tel" required>
+          <button id="next" aria-label="Continue to next step">Next</button>
+        `;
+        document.body.appendChild(dialog);
+        dialog.showModal();
+        record('mounted');
+        document.getElementById('next').addEventListener('click', () => {
+          window.firstStepValues = Object.fromEntries(
+            ['first-name', 'email', 'country-code', 'phone'].map(id => [id, document.getElementById(id).value])
+          );
+          record('next');
+          dialog.innerHTML = `
+            <h2 id="application-title">Apply to Example Company</h2>
+            <p id="review-step">Review your application</p>
+            <button id="submit">Submit application</button>
+          `;
+          document.getElementById('submit').addEventListener('click', () => {
+            record('application-submit');
+            dialog.innerHTML = '<p>Application was sent</p>';
+          });
+        });
+      }, 150);
+    });
+  </script>
+</body>
+</html>
