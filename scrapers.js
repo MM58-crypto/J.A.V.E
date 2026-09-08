@@ -3,6 +3,7 @@ const cheerio = require('cheerio');
 const { loadCareerProfile } = require('./career-profile');
 const { evaluateJob } = require('./evaluator');
 const { COUNTRIES, PRIORITY_AGE_HOURS, resolveCountries } = require('./search-options');
+const { normalizeJobUrl } = require('./job-url');
 require('dotenv').config({ quiet: true });
 
 const LI_GUEST = 'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search';
@@ -79,6 +80,7 @@ function makeJob(fields, country, timeText, datetime) {
   const postedAt = now - hoursAgo * 3_600_000;
   return {
     ...fields,
+    link: normalizeJobUrl(fields.link),
     country: country.code,
     countryName: country.name,
     hoursAgo,
@@ -107,7 +109,7 @@ async function scrapeLinkedIn(keyword, country, recentOnly) {
       title: card.find('.base-search-card__title').text().trim(),
       company: card.find('.base-search-card__subtitle').text().trim(),
       location: card.find('.job-search-card__location').text().trim(),
-      link: (card.find('a.base-card__full-link').attr('href') || '').split('?')[0],
+      link: card.find('a.base-card__full-link').attr('href') || '',
       source: 'LinkedIn',
     }, country, time.text(), time.attr('datetime')));
   });
@@ -159,7 +161,7 @@ Requirements: 2 years of experience delivering software and strong communication
 async function loadDescription(job) {
   if (job.description) return job.description;
   if (!job.link) return '';
-  const { data } = await axios.get(job.link, { headers: HEADERS, timeout: 12000 });
+  const { data } = await axios.get(normalizeJobUrl(job.link), { headers: HEADERS, timeout: 12000 });
   const $ = cheerio.load(data);
   if (job.source === 'LinkedIn') {
     return $('.show-more-less-html__markup').text().trim() || $('.description__text').text().trim();

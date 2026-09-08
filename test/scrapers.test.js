@@ -47,6 +47,36 @@ function jsearchJob(overrides = {}) {
   };
 }
 
+
+test('regional LinkedIn links from both sources stay on the authenticated host without locale parameters', async t => {
+  setup(t, true);
+  const external = 'https://careers.example.test/apply?id=123&lang=ms_MY#application';
+  t.mock.method(axios, 'get', async url => {
+    if (url.includes('jobs-guest')) {
+      return { data: card({ id: 'engineer-4242424242', relative: '1 hour ago' })
+        .replace('www.linkedin.com', 'my.linkedin.com')
+        .replace('engineer-4242424242"', 'engineer-4242424242?trk=public_jobs&originalSubdomain=my&locale=ms_MY#details"') };
+    }
+    if (url.includes('jsearch')) {
+      return { data: { data: [
+        jsearchJob({ employer_name: 'LinkedIn via JSearch', job_apply_link: 'https://sg.linkedin.com/jobs/view/4343434343/?originalSubdomain=sg&lang=ms' }),
+        jsearchJob({ employer_name: 'External employer', job_apply_link: external }),
+      ] } };
+    }
+    // Regional/locale-specific detail pages must not be requested either.
+    if (url !== 'https://www.linkedin.com/jobs/view/engineer-4242424242') {
+      throw new Error('Unexpected regional description request');
+    }
+    return { data: `<div class="show-more-less-html__markup">${description}</div>` };
+  });
+  const result = await getJobs('Backend Engineer', { countries: ['MY'], careerProfile });
+  assert.deepEqual(result.jobs.map(job => [job.company, job.link]), [
+    ['Example', 'https://www.linkedin.com/jobs/view/engineer-4242424242'],
+    ['LinkedIn via JSearch', 'https://www.linkedin.com/jobs/view/4343434343/'],
+    ['External employer', external],
+  ]);
+  assert.deepEqual(result.warnings, []);
+});
 test('under-five-hour matches outrank country and score without searching older postings', async t => {
   setup(t, true);
   t.mock.method(axios, 'get', async (url, options) => {

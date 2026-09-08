@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { loadPrivateProfile } = require('./private-profile');
 const { loadCareerProfile } = require('./career-profile');
+const { normalizeJobUrl } = require('./job-url');
 require('dotenv').config({ quiet: true });
 
 puppeteer.use(Stealth());
@@ -459,6 +460,30 @@ async function navigateToJob(page, url) {
   await page.waitForSelector('body', { timeout: 10000 });
 }
 
+async function requiresLinkedInSignIn(page) {
+  return page.evaluate(() => {
+    const authPath = /^\/(?:login|uas\/login(?:-submit)?|authwall|checkpoint|signup)(?:\/|$)/i;
+    if (authPath.test(location.pathname)) return true;
+    // Use URLs and form controls, not English text: guest pages can be localized.
+    for (const element of document.querySelectorAll(
+      'a[href], form[action], input[name="session_key"], input[name="session_password"], .authwall',
+    )) {
+      if (element.closest('[hidden], [aria-hidden="true"], [inert]')
+        || !element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) continue;
+      if (element.matches('input, .authwall')) return true;
+      let target;
+      try {
+        target = new URL(element.href || element.action, document.baseURI);
+      } catch {
+        continue;
+      }
+      if (/^(?:[a-z0-9-]+\.)?linkedin\.com$/i.test(target.hostname)
+        && authPath.test(target.pathname)) return true;
+    }
+    return false;
+  });
+}
+
 async function waitForSubmissionConfirmation(page) {
   try {
     await page.waitForFunction(() => /application (was )?(sent|submitted)|your application was sent/i.test(document.body.innerText), { timeout: 10000 });
@@ -519,12 +544,25 @@ async function applyToJob(job, resumePath, options = {}) {
     });
     const page = await browser.newPage();
     const reviewFields = new Map();
-    console.log(`\n  Opening: ${job.link}`);
-    await navigateToJob(page, job.link);
-    await delay(APPLY_DELAY_MS);
+    const jobUrl = normalizeJobUrl(job.link);
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+    console.log(`\n  Opening: ${jobUrl}`);
+    while (true) {
+      await navigateToJob(page, jobUrl);
+      await delay(APPLY_DELAY_MS);
 
-    if (await isExternalRedirect(page)) {
-      return { status: 'skipped', reason: 'external_redirect' };
+      if (await isExternalRedirect(page)) {
+        return { status: 'skipped', reason: 'external_redirect' };
+      }
+      if (!await requiresLinkedInSignIn(page)) break;
+
+      let decision;
+      do {
+        decision = normalize(await (options.ask || askUser)(
+          'LinkedIn sign-in or verification is required. Complete it in the open Chromium window, then type RETRY to reopen this job, or CANCEL',
+        ));
+      } while (decision !== 'retry' && decision !== 'cancel');
+      if (decision === 'cancel') return { status: 'incomplete', reason: 'authentication_required' };
     }
 
     const easyApplyButton = await findButton(page, [/easy apply/i], false);

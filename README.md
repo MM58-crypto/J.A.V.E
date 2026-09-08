@@ -119,9 +119,13 @@ JSEARCH_API_KEY=your_rapidapi_key_here
 The agent uses your existing Chromium session to stay logged into LinkedIn. Before running the agent for the first time:
 
 1. Open Chromium manually
-2. Go to linkedin.com and log in, ticking "Keep me logged in"
+2. Go to https://www.linkedin.com and log in, ticking "Keep me logged in"
 3. Close Chromium completely
 4. Run the agent — it will pick up your session automatically
+
+LinkedIn job links from both search providers are normalized to `https://www.linkedin.com/jobs/view/...`, with locale/tracking queries and fragments removed. The Agent also normalizes incoming job links before opening them, so regional hosts such as `my.linkedin.com` and `sg.linkedin.com` do not select a different public-site session or locale. Job location and country search filters are unchanged; external application URLs retain their parameters.
+
+The Agent requests English pages and keeps using `CHROMIUM_PROFILE`; it does not change your LinkedIn account's language setting. If LinkedIn shows a login page, verification challenge, or visible sign-in controls, the Agent keeps Chromium open. Complete sign-in there, then type `RETRY` to reopen the same job. If authentication is still required, it pauses again rather than reporting `no_easy_apply`. `CANCEL` records an incomplete application with reason `authentication_required`.
 
 Make sure Chromium is fully closed before running the agent. Two instances sharing the same profile will cause conflicts.
 
@@ -217,6 +221,6 @@ Every job the agent processes is recorded in `applications.json`, including:
 
 - LinkedIn Easy Apply forms vary significantly between companies. Most are handled automatically, but complex forms with custom questions will pause and ask you for input.
 - Jobs that redirect to external company websites are skipped by design.
-- LinkedIn may occasionally detect browser automation and log out the session. If this happens, log back in manually in Chromium and run the agent again.
+- LinkedIn can expire or revoke a session, including when it detects automation; JAVE cannot guarantee continued authentication. Complete sign-in or verification in the Agent's open Chromium window and type `RETRY` to resume the same job.
 - JSearch is optional and requires a subscribed RapidAPI key. Each search makes one JSearch request per selected country when configured; selecting more countries consumes more quota.
 - Gemini rate limits can affect job-requirement extraction. JAVE falls back to local extraction without sending candidate data.

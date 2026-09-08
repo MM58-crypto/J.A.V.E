@@ -251,25 +251,68 @@ async function verifyContactFixture(t, fixture) {
   });
   const page = await browser.newPage();
   const link = 'https://www.linkedin.com/jobs/view/4242424242/';
-  const html = fs.readFileSync(path.join(__dirname, 'fixtures', fixture.file), 'utf8');
+  const inputLink = fixture.link || link;
+  let authenticated = !fixture.loginPath && !fixture.guest;
+  let loginPrompts = 0;
+  let resumedUrl;
+  const guestHtml = '<html lang="ms"><body><nav><a href="/login">Daftar masuk</a></nav></body></html>';
+  async function signIn() {
+    await browser.setCookie({
+      name: 'li_at', value: 'synthetic-session', url: 'https://www.linkedin.com',
+      secure: true, httpOnly: true,
+    });
+  }
+  if (authenticated) await signIn();
+  const html = fixture.noEasyApply
+    ? '<html lang="en"><body><nav>Signed in</nav><a href="/login" hidden>Sign in</a><a href="http://[">Employer link</a><button>Apply on company website</button></body></html>'
+    : fs.readFileSync(path.join(__dirname, 'fixtures', fixture.file), 'utf8');
   const events = [];
   await page.exposeFunction('reportFixtureEvent', event => events.push(event));
   await page.setRequestInterception(true);
-  page.on('request', request => {
-    if (request.isNavigationRequest() && request.url() === link) {
-      return request.respond({ status: 200, contentType: 'text/html', body: html });
+  page.on('request', async request => {
+    if (!request.isNavigationRequest()) return request.abort();
+    const url = new URL(request.url());
+    if (url.hostname !== 'www.linkedin.com') {
+      return request.respond({ status: 200, contentType: 'text/html', body: guestHtml });
     }
-    return request.abort();
+    if (url.pathname === new URL(link).pathname) {
+      if (!authenticated && fixture.loginPath) {
+        return request.respond({ status: 302, headers: { location: fixture.loginPath } });
+      }
+      const hasSession = (request.headers().cookie || '').includes('li_at=synthetic-session');
+      const english = (request.headers()['accept-language'] || '').startsWith('en');
+      return request.respond({
+        status: 200, contentType: 'text/html',
+        body: authenticated && hasSession && english ? html : guestHtml,
+      });
+    }
+    return request.respond({
+      status: 200, contentType: 'text/html',
+      body: '<html lang="ms"><body><h1>Pengesahan diperlukan</h1></body></html>',
+    });
   });
   // Keep the real driver and Chromium interaction; replace only session creation.
   t.mock.method(puppeteer, 'launch', async () => browser);
   t.mock.method(browser, 'newPage', async () => page);
   let reviewState;
-  const outcome = await applyToJob({ ...job, link }, resumePath, {
+  const outcome = await applyToJob({ ...job, link: inputLink }, resumePath, {
     profile: fixture.profile,
     delayMs: 0,
     ask: async question => {
+      if (question.includes('RETRY')) {
+        loginPrompts++;
+        assert.equal(await page.$('input'), null, 'No private answers entered before sign-in');
+        if (fixture.cancelLogin) return 'CANCEL';
+        // A premature retry must not classify the job as lacking Easy Apply.
+        if (loginPrompts === 1) return 'RETRY';
+        assert.equal(loginPrompts, 2);
+        authenticated = true;
+        await signIn();
+        await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
+        return 'RETRY';
+      }
       if (!question.includes('Type SUBMIT')) throw new Error(`Unexpected question: ${question}`);
+      resumedUrl = page.url();
       reviewState = await page.evaluate(() => ({
         firstStep: window.firstStepValues,
         reviewVisible: Boolean(document.getElementById('review-step')),
@@ -280,6 +323,21 @@ async function verifyContactFixture(t, fixture) {
     },
     output: () => {},
   });
+
+  if (fixture.cancelLogin) {
+    assert.deepEqual(outcome, { status: 'incomplete', reason: 'authentication_required' });
+    assert.equal(loginPrompts, 1);
+    assert.deepEqual(events, []);
+    return;
+  }
+  if (fixture.noEasyApply) {
+    assert.deepEqual(outcome, { status: 'skipped', reason: 'no_easy_apply' });
+    assert.equal(loginPrompts, 0);
+    assert.deepEqual(events, []);
+    return;
+  }
+  assert.equal(loginPrompts, fixture.loginPath || fixture.guest ? 2 : 0);
+  assert.equal(resumedUrl, link);
 
   assert.equal(outcome.status, 'cancelled');
   assert.equal(outcome.reviewed, true);
@@ -293,6 +351,29 @@ async function verifyContactFixture(t, fixture) {
 for (const fixture of contactFixtures) {
   test(`applyToJob fills ${fixture.name} contact controls and cancels at review`, t => verifyContactFixture(t, fixture));
 }
+
+test('a Malaysian job reuses the www session instead of opening the localized guest page', t => verifyContactFixture(t, {
+  ...contactFixtures[0],
+  link: 'https://my.linkedin.com/jobs/view/4242424242/?originalSubdomain=my&locale=ms_MY#details',
+}));
+
+for (const auth of [
+  { name: 'login redirect', loginPath: '/login' },
+  { name: 'verification redirect', loginPath: '/checkpoint/challenge/123' },
+  { name: 'localized guest job page', guest: true },
+]) {
+  test(`${auth.name} resumes the same job after manual sign-in without skipping it`, t => verifyContactFixture(t, {
+    ...contactFixtures[0], ...auth,
+  }));
+}
+
+test('cancelling sign-in reports authentication required, not no Easy Apply', t => verifyContactFixture(t, {
+  ...contactFixtures[0], loginPath: '/authwall', cancelLogin: true,
+}));
+
+test('an authenticated job without Easy Apply is skipped despite hidden login markup', t => verifyContactFixture(t, {
+  ...contactFixtures[0], noEasyApply: true,
+}));
 
 async function openSDUIFixture(t) {
   const { page } = await openFixture(t);
