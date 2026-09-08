@@ -5,7 +5,7 @@ const COUNTRIES = [
   { code: 'SA', name: 'Saudi Arabia' },
 ];
 const DEFAULT_COUNTRIES = ['MY', 'OM'];
-const PRIORITY_AGE_HOURS = 5;
+const PRIORITY_AGE_HOURS = 3;
 
 function resolveCountries(codes = DEFAULT_COUNTRIES) {
   if (!Array.isArray(codes) || codes.length === 0) {
