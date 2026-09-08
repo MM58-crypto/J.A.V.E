@@ -123,6 +123,7 @@ async function showDetail(job, keyword, state) {
 
   console.log(chalk.dim('\n  ─────────────────────────────────────────────'));
   console.log(chalk.blueBright(`\n  Link: ${job.link || 'N/A'}\n`));
+  console.log(chalk.dim('  Resume tailoring sends career profile and resume career sections with the full JD to Gemini.\n  Private answers and the contact header stay local.\n'));
 
   const { action } = await inquirer.prompt([{
     type: 'list',

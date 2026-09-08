@@ -14,6 +14,7 @@ const CHROMIUM_PATH = process.env.CHROMIUM_PATH || '/usr/bin/chromium';
 const CHROMIUM_PROFILE = process.env.CHROMIUM_PROFILE || `${process.env.HOME}/.config/chromium`;
 const APPLY_DELAY_MS = 1200;
 const MAX_STEPS = 10;
+const RESUME_UPLOAD_TIMEOUT_MS = 10000;
 
 function askUser(question) {
   return new Promise(resolve => {
@@ -71,7 +72,7 @@ function findEasyApplyRoot() {
     && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
   const navigation = /^(next|continue|review|review application|submit|submit application)$|continue to next step/i;
   const candidates = document.querySelectorAll(
-    'dialog, [role="dialog"], [aria-modal="true"], .jobs-easy-apply-modal, .artdeco-modal',
+    'dialog, [role="dialog"], [aria-modal="true"], .jobs-easy-apply-modal, .artdeco-modal, [data-testid="dialog-content"]',
   );
 
   for (const root of candidates) {
@@ -85,6 +86,7 @@ function findEasyApplyRoot() {
     ].join(' ');
     const isEasyApply = root.matches('.jobs-easy-apply-modal')
       || root.querySelector('.jobs-easy-apply-modal, .jobs-easy-apply-content')
+      || root.querySelector('[data-sdui-screen="com.linkedin.sdui.flagshipnav.jobs.easyapply.EasyApply"]')
       || /\beasy\s+apply\b|\bapply\s+to\b/i.test(name);
     if (!isEasyApply) continue;
 
@@ -272,6 +274,8 @@ async function radioMetadata(page, radio) {
       group: el.name || question.trim(),
       checked: el.checked,
       required: el.required || el.getAttribute('aria-required') === 'true',
+      resume: Boolean(container?.querySelector('#easyApplyUploadedResumeRef'))
+        || Boolean(el.closest('[role="radio"][aria-label]')?.getAttribute('aria-label')?.match(/\.(pdf|docx?)$/i)),
       visible: !el.disabled && Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
     };
   }, radio);
@@ -284,7 +288,10 @@ async function fillRadioFields(page, root, profile, ask) {
 
   for (const radio of radios) {
     const metadata = await radioMetadata(page, radio);
-    if (!metadata.visible) continue;
+    if (!metadata.visible || metadata.resume) {
+      await radio.dispose();
+      continue;
+    }
     if (!groups.has(metadata.group)) groups.set(metadata.group, []);
     groups.get(metadata.group).push({ radio, ...metadata });
   }
@@ -345,23 +352,125 @@ async function fillCheckboxFields(page, root, profile, ask) {
 }
 
 async function uploadResume(page, root, resumePath) {
-  const records = [];
   const fileInputs = await root.$$('input[type="file"]');
+  const buttons = await root.$$('button');
+  let uploadButton;
+  for (const button of buttons) {
+    const available = await button.evaluate(el => !el.disabled
+      && !el.closest('[hidden], [aria-hidden="true"], [inert]')
+      && el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+      && [el.innerText, el.getAttribute('aria-label')].some(text => /^upload\s+(resume|cv)$/i.test((text || '').trim())));
+    if (!uploadButton && available) uploadButton = button;
+    else await button.dispose();
+  }
+  const resumeGroup = await root.$('#easyApplyUploadedResumeRef');
+  if (!fileInputs.length && !uploadButton && !resumeGroup) return [];
 
-  for (const [index, fileInput] of fileInputs.entries()) {
-    const field = await inspectElement(page, fileInput);
-    const label = field.label || (fileInputs.length === 1 ? 'Resume' : `File upload ${index + 1}`);
-    const isResume = /resume|cv/i.test(label) || (fileInputs.length === 1 && !/cover letter/i.test(label));
-    if (!isResume) {
-      records.push(createRecord(label, 'file', '', 'unresolved', field.required));
-      continue;
+  const filename = path.basename(resumePath);
+  const stat = fs.statSync(resumePath, { bigint: true });
+  const artifact = [path.resolve(resumePath), stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
+  const records = [];
+  let resumeInput;
+  let resumeLabel = 'Resume';
+  try {
+    for (const [index, fileInput] of fileInputs.entries()) {
+      const field = await inspectElement(page, fileInput);
+      const label = field.label || (fileInputs.length === 1 ? 'Resume' : `File upload ${index + 1}`);
+      const usable = await fileInput.evaluate(el => !el.disabled
+        && !el.parentElement?.closest('[hidden], [aria-hidden="true"], [inert]')
+        && el.parentElement?.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }));
+      const isResume = /resume|cv/i.test(label) || (fileInputs.length === 1 && !/cover letter/i.test(label));
+      if (isResume && usable && !resumeInput) {
+        resumeInput = fileInput;
+        resumeLabel = label;
+      } else if (!isResume && usable) {
+        records.push(createRecord(label, 'file', '', 'unresolved', field.required));
+      }
+    }
+    if (!resumeInput && !uploadButton && !resumeGroup) return records;
+
+    // The marker belongs to this DOM scope and this exact local artifact, not a
+    // saved filename. Navigation, replacement forms and regenerated PDFs invalidate it.
+    const verified = await root.evaluate((el, key) => el.__javeVerifiedResume === key, artifact);
+    const selected = await root.evaluate((el, name) => {
+      const cards = Array.from(el.querySelectorAll('[role="radio"][aria-label]'))
+        .filter(card => !card.closest('[hidden], [aria-hidden="true"], [inert]')
+          && card.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }));
+      if (cards.some(card => /\.(pdf|docx?)$/i.test(card.getAttribute('aria-label') || ''))) {
+        return cards.some(card => card === el.__javeVerifiedResumeControl && card.getAttribute('aria-label') === name
+          && card.getAttribute('aria-checked') === 'true'
+          && (!card.querySelector('input[type="radio"]') || card.querySelector('input[type="radio"]').checked));
+      }
+      return Array.from(el.querySelectorAll('input[type="file"]')).some(input =>
+        input === el.__javeVerifiedResumeControl && input.files?.[0]?.name === name);
+    }, filename);
+    if (verified && selected) {
+      records.push(createRecord(resumeLabel, 'file', filename, 'profile', true));
+      return records;
     }
 
-    await fileInput.uploadFile(resumePath);
-    records.push(createRecord(label, 'file', path.basename(resumePath), 'profile', field.required));
-  }
+    // Remember matching saved cards before uploading. A rejected upload must not
+    // pass merely because an older, identically named resume is already selected.
+    await root.evaluate((el, name) => {
+      el.__javeVerifiedResume = null;
+      el.__javeResumeBefore = new Map(Array.from(el.querySelectorAll('[role="radio"][aria-label]'))
+        .filter(card => card.getAttribute('aria-label') === name)
+        .map(card => [card, card.innerHTML]));
+    }, filename);
+    if (resumeInput) {
+      await resumeInput.uploadFile(resumePath);
+    } else if (uploadButton) {
+      const [chooser] = await Promise.all([
+        page.waitForFileChooser({ timeout: RESUME_UPLOAD_TIMEOUT_MS }),
+        uploadButton.click(),
+      ]);
+      await chooser.accept([resumePath]);
+    } else {
+      throw new Error('Resume upload control is unavailable; the saved resume has not been verified.');
+    }
 
-  return records;
+    const confirmation = await page.waitForFunction((el, name, hasResumeGroup) => {
+      if (!el.isConnected) return false;
+      const visible = card => !card.closest('[hidden], [aria-hidden="true"], [inert]')
+        && card.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+      const cards = Array.from(el.querySelectorAll('[role="radio"][aria-label]'))
+        .filter(card => visible(card) && /\.(pdf|docx?)$/i.test(card.getAttribute('aria-label') || ''));
+      if (hasResumeGroup || cards.length) {
+        return cards.find(card => card.getAttribute('aria-label') === name
+          && (!el.__javeResumeBefore.has(card) || el.__javeResumeBefore.get(card) !== card.innerHTML)) || false;
+      }
+      return Array.from(el.querySelectorAll('input[type="file"]'))
+        .find(input => input.files?.[0]?.name === name) || false;
+    }, { timeout: RESUME_UPLOAD_TIMEOUT_MS }, root, filename, Boolean(resumeGroup));
+    try {
+      const card = confirmation.asElement();
+      if (card && await card.evaluate(el => el.getAttribute('role') === 'radio')) {
+        const checked = await card.evaluate(el => el.getAttribute('aria-checked') === 'true'
+          && (!el.querySelector('input[type="radio"]') || el.querySelector('input[type="radio"]').checked));
+        if (!checked) await card.click();
+        const selection = await page.waitForFunction((el, name) => el.isConnected
+          && el.getAttribute('aria-label') === name && el.getAttribute('aria-checked') === 'true'
+          && (!el.querySelector('input[type="radio"]') || el.querySelector('input[type="radio"]').checked),
+        { timeout: RESUME_UPLOAD_TIMEOUT_MS }, card, filename);
+        await selection.dispose();
+      }
+      await root.evaluate((el, key, control) => {
+        el.__javeVerifiedResume = key;
+        el.__javeVerifiedResumeControl = control;
+      }, artifact, card);
+    } finally {
+      await confirmation.dispose();
+    }
+    records.push(createRecord(resumeLabel, 'file', filename, 'profile', true));
+    return records;
+  } catch (error) {
+    throw new Error(`Resume upload or selection could not be confirmed for "${filename}": ${error.message}`, { cause: error });
+  } finally {
+    await root.evaluate(el => { delete el.__javeResumeBefore; }).catch(() => {});
+    await Promise.all(fileInputs.map(input => input.dispose()));
+    if (uploadButton) await uploadButton.dispose();
+    if (resumeGroup) await resumeGroup.dispose();
+  }
 }
 
 async function fillFormStep(page, profile, resumePath, options = {}) {

@@ -13,8 +13,11 @@ const mammoth = require('mammoth');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { pathToFileURL } = require('url');
 const { loadCareerProfile } = require('./career-profile');
 const { loadPrivateProfile } = require('./private-profile');
+const { generateTailoredContent } = require('./resume-tailoring');
 require('dotenv').config({ quiet: true });
 
 const OUTPUT_DIR = path.resolve(process.env.OUTPUT_DIR || './output');
@@ -34,14 +37,6 @@ function normalizeWhitespace(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function normalizeForMatch(value) {
-  return normalizeWhitespace(value)
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9+#]+/g, ' ')
-    .trim();
-}
 
 function convertResumeToPdf(resumePath, outputDir = path.dirname(resumePath)) {
   const absoluteResumePath = path.resolve(resumePath);
@@ -55,14 +50,20 @@ function convertResumeToPdf(resumePath, outputDir = path.dirname(resumePath)) {
 
   const absoluteOutputDir = path.resolve(outputDir);
   fs.mkdirSync(absoluteOutputDir, { recursive: true });
-  execFileSync('libreoffice', [
-    '--headless',
-    '--convert-to',
-    'pdf',
-    '--outdir',
-    absoluteOutputDir,
-    absoluteResumePath,
-  ], { timeout: 60000, stdio: 'pipe' });
+  const conversionProfile = fs.mkdtempSync(path.join(os.tmpdir(), 'jave-pdf-'));
+  try {
+    execFileSync('libreoffice', [
+      `-env:UserInstallation=${pathToFileURL(conversionProfile).href}`,
+      '--headless',
+      '--convert-to',
+      'pdf',
+      '--outdir',
+      absoluteOutputDir,
+      absoluteResumePath,
+    ], { timeout: 60000, stdio: 'pipe' });
+  } finally {
+    fs.rmSync(conversionProfile, { recursive: true, force: true });
+  }
 
   const pdfPath = path.join(
     absoluteOutputDir,
@@ -182,44 +183,41 @@ async function loadResumeBlocks(resumePath) {
   return blocks;
 }
 
-function prioritizeSkillLine(text, jobText) {
-  const colon = text.indexOf(':');
-  if (colon === -1) return text;
-  const label = text.slice(0, colon).trim();
-  const values = text.slice(colon + 1).split(',').map(value => value.trim()).filter(Boolean);
-  const ranked = values
-    .map((value, index) => ({
-      value,
-      index,
-      matched: ` ${jobText} `.includes(` ${normalizeForMatch(value)} `),
-    }))
-    .sort((left, right) => Number(right.matched) - Number(left.matched) || left.index - right.index)
-    .map(item => item.value);
-  return `${label}: ${ranked.join(', ')}`;
-}
-
-function tailorResumeBlocks(blocks, job) {
-  const jobText = normalizeForMatch(`${job.title || ''} ${job.description || ''}`);
-  return blocks.map(block => block.type === 'skill'
-    ? { ...block, text: prioritizeSkillLine(block.text, jobText) }
-    : { ...block });
-}
-
-function matchedCareerSkills(job, careerProfile) {
-  const jobText = normalizeForMatch(`${job.title || ''} ${job.description || ''}`);
-  return careerProfile.skills.filter(skill => {
-    const normalized = normalizeForMatch(skill);
-    return normalized && ` ${jobText} `.includes(` ${normalized} `);
-  });
-}
-
-function buildSummary(job, careerProfile) {
-  const matched = matchedCareerSkills(job, careerProfile).slice(0, 6);
-  const experience = `${careerProfile.years_experience} year${careerProfile.years_experience === 1 ? '' : 's'} of experience`;
-  if (matched.length) {
-    return `${careerProfile.headline} with ${experience}. Relevant approved skills for this role: ${matched.join(', ')}.`;
-  }
-  return `${careerProfile.headline} with ${experience}.`;
+function prepareCareerContent(blocks, careerProfile, privateProfile) {
+  // Only professional fields cross the model boundary. Mask known identity
+  // values even if a base resume repeats them inside its career sections.
+  const profile = Object.fromEntries([
+    'headline', 'years_experience', 'education', 'skills', 'languages', 'target_roles',
+  ].map(key => [key, careerProfile[key]]));
+  const identities = [...new Set([
+    'full_name', 'email', 'phone', 'linkedin', 'github', 'location',
+  ].map(key => String(privateProfile.personal[key] || '').trim()).filter(Boolean))]
+    .sort((left, right) => right.length - left.length);
+  const masks = identities.map((value, index) => ({
+    value,
+    token: `[LOCAL_CONTACT_${String.fromCharCode(65 + index)}]`,
+    pattern: new RegExp(`(?<![\\p{L}\\p{N}])${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, 'giu'),
+  }));
+  const transform = (value, restore = false) => {
+    if (typeof value === 'string') {
+      for (const mask of masks) {
+        value = restore
+          ? value.replaceAll(mask.token, mask.value)
+          : value.replace(mask.pattern, mask.token);
+      }
+      return value;
+    }
+    if (Array.isArray(value)) return value.map(item => transform(item, restore));
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, transform(item, restore)]));
+    }
+    return value;
+  };
+  return {
+    blocks: transform(blocks),
+    profile: transform(profile),
+    restore: content => transform(content, true),
+  };
 }
 
 function requireResumeIdentity(privateProfile) {
@@ -302,9 +300,8 @@ function renderBlock(block) {
   return normalLine(block.text, { bold: block.bold });
 }
 
-function buildResumeParagraphs(job, blocks, privateProfile, careerProfile) {
+function buildResumeParagraphs(summary, blocks, privateProfile, careerProfile) {
   requireResumeIdentity(privateProfile);
-  const summary = buildSummary(job, careerProfile);
   return [
     normalLine(privateProfile.personal.full_name, {
       alignment: AlignmentType.CENTER,
@@ -337,7 +334,7 @@ function blockText(block) {
   return block.text;
 }
 
-function buildResumeText(job, blocks, privateProfile, careerProfile) {
+function buildResumeText(summary, blocks, privateProfile, careerProfile) {
   requireResumeIdentity(privateProfile);
   return [
     privateProfile.personal.full_name,
@@ -345,13 +342,19 @@ function buildResumeText(job, blocks, privateProfile, careerProfile) {
     formatContact(privateProfile),
     '',
     'SUMMARY',
-    buildSummary(job, careerProfile),
+    summary,
     '',
     ...blocks.map(blockText),
   ].join('\n');
 }
 
-async function saveDocx(job, blocks, privateProfile, careerProfile, outputDir = OUTPUT_DIR) {
+function filenamePart(value, fallback, limit) {
+  const words = String(value || '').normalize('NFKC')
+    .replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '');
+  return Array.from(words).slice(0, limit).join('').replace(/_+$/g, '') || fallback;
+}
+
+async function saveDocx(job, summary, blocks, privateProfile, careerProfile, outputDir = OUTPUT_DIR) {
   const absoluteOutputDir = path.resolve(outputDir);
   fs.mkdirSync(absoluteOutputDir, { recursive: true });
   const doc = new Document({
@@ -374,12 +377,14 @@ async function saveDocx(job, blocks, privateProfile, careerProfile, outputDir = 
           margin: { top: 860, right: 1100, bottom: 860, left: 1100 },
         },
       },
-      children: buildResumeParagraphs(job, blocks, privateProfile, careerProfile),
+      children: buildResumeParagraphs(summary, blocks, privateProfile, careerProfile),
     }],
   });
 
-  const company = (job.company || 'company').replace(/[^a-z0-9]/gi, '_');
-  const outPath = path.join(absoluteOutputDir, `tailored_${company}_${Date.now()}.docx`);
+  const name = filenamePart(privateProfile.personal.full_name, 'Candidate', 48);
+  const role = filenamePart(job.title, 'Job', 72);
+  const artifactDir = fs.mkdtempSync(path.join(absoluteOutputDir, 'resume-'));
+  const outPath = path.join(artifactDir, `${name}_${role}_resume.docx`);
   fs.writeFileSync(outPath, await Packer.toBuffer(doc));
   return outPath;
 }
@@ -387,13 +392,17 @@ async function saveDocx(job, blocks, privateProfile, careerProfile, outputDir = 
 async function tailorResume(job, resumePath, options = {}) {
   const privateProfile = options.privateProfile || loadPrivateProfile();
   const careerProfile = options.careerProfile || loadCareerProfile();
+  requireResumeIdentity(privateProfile);
   const sourceBlocks = await loadResumeBlocks(resumePath);
-  const blocks = tailorResumeBlocks(sourceBlocks, job);
+  const career = prepareCareerContent(sourceBlocks, careerProfile, privateProfile);
+  const { summary, blocks } = career.restore(await generateTailoredContent(
+    job, career.blocks, career.profile, { generateContent: options.generateContent },
+  ));
   const outputDir = options.outputDir || OUTPUT_DIR;
-  const savedTo = await saveDocx(job, blocks, privateProfile, careerProfile, outputDir);
-  const pdfPath = convertResumeToPdf(savedTo, outputDir);
+  const savedTo = await saveDocx(job, summary, blocks, privateProfile, careerProfile, outputDir);
+  const pdfPath = convertResumeToPdf(savedTo);
   return {
-    text: buildResumeText(job, blocks, privateProfile, careerProfile),
+    text: buildResumeText(summary, blocks, privateProfile, careerProfile),
     savedTo,
     pdfPath,
   };
@@ -401,10 +410,8 @@ async function tailorResume(job, resumePath, options = {}) {
 
 module.exports = {
   buildResumeText,
-  buildSummary,
   convertResumeToPdf,
   loadBaseResume,
   loadResumeBlocks,
   tailorResume,
-  tailorResumeBlocks,
 };

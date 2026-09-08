@@ -487,3 +487,133 @@ for (const [name, opening, closing] of [
     assert.equal(await page.evaluate(() => window.submitClicks), 0);
   });
 }
+
+async function openResumeFixture(t) {
+  const { browser, page } = await openFixture(t);
+  await page.setContent(fs.readFileSync(path.join(__dirname, 'fixtures/easy-apply-resume-sdui.html'), 'utf8'));
+  await page.click('#launch');
+  return { browser, page };
+}
+
+const resumeFillOptions = {
+  delayMs: 0,
+  ask: question => { throw new Error(`Unexpected question: ${question}`); },
+};
+
+test('chooser-only SDUI upload selects the new resume after delayed rendering and selection', async t => {
+  const resumePath = temporaryResume(t);
+  const { page } = await openResumeFixture(t);
+  assert.equal(await page.$('#application input[type="file"]'), null);
+  const result = await fillFormStep(page, profile, resumePath, resumeFillOptions);
+  assert.deepEqual(result.unresolvedRequired, []);
+  assert.deepEqual(result.fields.map(field => [field.type, field.value]), [['file', path.basename(resumePath)]]);
+  assert.equal(await page.$eval('#uploaded-resume', card => card.getAttribute('aria-checked')), 'true');
+  assert.equal(await page.$eval('#saved-base input', input => input.checked), false);
+  assert.equal(await page.$eval('#saved-same-name input', input => input.checked), false);
+  assert.deepEqual(await page.evaluate(() => window.uploadEvents), ['chooser', 'synthetic-resume.pdf', 'select', 'selected']);
+  assert.deepEqual(await page.$$eval('#background-file, #stale-file', inputs => inputs.map(input => input.files.length)), [0, 0]);
+  assert.equal(await page.evaluate(() => window.backgroundClicks), 0);
+
+  await fillFormStep(page, profile, resumePath, resumeFillOptions);
+  assert.deepEqual(await page.evaluate(() => window.uploadEvents), ['chooser', 'synthetic-resume.pdf', 'select', 'selected']);
+});
+
+test('a regenerated artifact at the same path is uploaded again, not mistaken for the saved basename', async t => {
+  const resumePath = temporaryResume(t);
+  const { page } = await openResumeFixture(t);
+  await page.evaluate(() => window.selectResume(document.getElementById('saved-same-name')));
+  await fillFormStep(page, profile, resumePath, resumeFillOptions);
+  fs.appendFileSync(resumePath, '\n% regenerated artifact\n');
+  await fillFormStep(page, profile, resumePath, resumeFillOptions);
+  assert.deepEqual(await page.evaluate(() => window.uploadEvents), [
+    'chooser', 'synthetic-resume.pdf', 'select', 'selected',
+    'chooser', 'synthetic-resume.pdf', 'select', 'selected',
+  ]);
+});
+
+async function runResumeApplication(t, mode) {
+  const resumePath = temporaryResume(t);
+  const { browser, page } = await openFixture(t);
+  const html = fs.readFileSync(path.join(__dirname, 'fixtures/easy-apply-resume-sdui.html'), 'utf8');
+  page.removeAllListeners('request');
+  page.on('request', request => request.isNavigationRequest()
+    ? request.respond({ status: 200, contentType: 'text/html', body: html })
+    : request.abort());
+  await page.evaluateOnNewDocument(mode => {
+    window.addEventListener('DOMContentLoaded', () => {
+      window.uploadMode = mode;
+      // Even a selected stale file with the requested basename cannot prove upload.
+      if (mode === 'reject') window.selectResume(document.getElementById('saved-same-name'));
+    });
+  }, mode);
+  t.mock.method(puppeteer, 'launch', async () => browser);
+  t.mock.method(browser, 'newPage', async () => page);
+  const close = browser.close.bind(browser);
+  let state;
+  t.mock.method(browser, 'close', async () => {
+    if (!browser.connected) return;
+    state = await page.evaluate(() => ({
+      next: window.nextClicks,
+      submit: window.submitClicks,
+      background: window.backgroundClicks,
+      uploads: window.uploadEvents,
+      selected: document.querySelector('#application [role="radio"][aria-checked="true"]')?.getAttribute('aria-label'),
+    }));
+    await close();
+  });
+  const reviewAnswers = ['yes', 'CANCEL'];
+  let reviews = 0;
+  const outcome = await applyToJob({ ...job, link: 'https://www.linkedin.com/jobs/view/4242424242/' }, resumePath, {
+    profile,
+    delayMs: 0,
+    ask: question => {
+      if (!question.includes('Type SUBMIT')) throw new Error(`Unexpected question: ${question}`);
+      reviews++;
+      return reviewAnswers.shift();
+    },
+    output: () => {},
+  });
+  return { outcome, state, reviews };
+}
+
+test('chooser-only application advances only after selection and still requires SUBMIT at review', async t => {
+  const { outcome, state, reviews } = await runResumeApplication(t, 'delayed');
+  assert.equal(outcome.status, 'cancelled');
+  assert.equal(reviews, 2);
+  assert.equal(state.next, 1);
+  assert.equal(state.submit, 0);
+  assert.equal(state.background, 0);
+  assert.deepEqual(state.uploads, ['chooser', 'synthetic-resume.pdf', 'select', 'selected']);
+});
+
+for (const mode of ['reject', 'selection-rejected']) {
+  test(`SDUI ${mode} blocks Next even when the requested filename appears`, async t => {
+    const { outcome, state, reviews } = await runResumeApplication(t, mode);
+    assert.equal(outcome.status, 'error');
+    assert.match(outcome.reason, /Resume upload or selection could not be confirmed/);
+    assert.equal(state.next, 0);
+    assert.equal(state.submit, 0);
+    assert.equal(state.background, 0);
+    assert.equal(reviews, 0);
+    assert.equal(state.selected, mode === 'reject' ? 'synthetic-resume.pdf' : 'base-resume.pdf');
+  });
+}
+
+test('direct file input upload is reused only while verified and rejects a cleared file', async t => {
+  const resumePath = temporaryResume(t);
+  const { page } = await openFixture(t);
+  await page.$eval('#resume', input => {
+    input.hidden = true;
+    window.uploadChanges = 0;
+    input.addEventListener('change', () => { window.uploadChanges++; });
+  });
+  await fillFixture(page, resumePath);
+  await fillFixture(page, resumePath);
+  assert.equal(await page.evaluate(() => window.uploadChanges), 1);
+  await page.$eval('#resume', input => {
+    input.value = '';
+    input.addEventListener('change', () => { input.value = ''; });
+  });
+  await assert.rejects(fillFixture(page, resumePath), /Resume upload or selection could not be confirmed/);
+  assert.equal(await page.evaluate(() => window.submitClicks), 0);
+});

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>SDUI resume upload fixture</title>
+  <style>
+    [role="radio"] { padding: 12px; border: 1px solid #888; margin: 8px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <button id="launch">Easy Apply</button>
+  <button id="background-upload" onclick="window.backgroundClicks++">Upload resume</button>
+  <input id="background-file" type="file">
+  <button onclick="window.backgroundClicks++">Next</button>
+  <section data-testid="dialog-content" hidden>
+    <h2>Apply to stale job</h2>
+    <div data-sdui-screen="com.linkedin.sdui.flagshipnav.jobs.easyapply.EasyApply">
+      <button onclick="window.backgroundClicks++">Upload resume</button>
+      <input id="stale-file" type="file">
+      <button onclick="window.backgroundClicks++">Next</button>
+    </div>
+  </section>
+  <section id="application" hidden>
+    <header><h2>Apply to E-Solutions</h2></header>
+    <div data-testid="dialog-content">
+      <div data-sdui-screen="com.linkedin.sdui.flagshipnav.jobs.easyapply.EasyApply">
+        <fieldset role="radiogroup">
+          <div id="easyApplyUploadedResumeRef">Resume</div>
+          <div id="saved-base" role="radio" aria-label="base-resume.pdf" aria-checked="true" tabindex="0">
+            <input id="«r1»" type="radio" name="resume" checked><label for="«r1»"></label>
+            <span>base-resume.pdf</span>
+          </div>
+          <div id="saved-same-name" role="radio" aria-label="synthetic-resume.pdf" aria-checked="false" tabindex="0">
+            <input id="«r2»" type="radio" name="resume"><label for="«r2»"></label>
+            <span>synthetic-resume.pdf</span><span>Saved last month</span>
+          </div>
+        </fieldset>
+        <button id="upload"><span><span>Upload resume</span></span></button>
+        <div id="upload-status" role="status"></div>
+      </div>
+      <footer><button id="back">Back</button><button id="next">Next</button></footer>
+    </div>
+  </section>
+  <script>
+    window.uploadMode = 'delayed';
+    window.uploadEvents = [];
+    window.backgroundClicks = 0;
+    window.nextClicks = 0;
+    window.submitClicks = 0;
+    window.selectResume = card => {
+      for (const other of document.querySelectorAll('#application [role="radio"]')) {
+        other.setAttribute('aria-checked', String(other === card));
+        other.querySelector('input').checked = other === card;
+      }
+    };
+    document.getElementById('launch').onclick = () => { document.getElementById('application').hidden = false; };
+    for (const card of document.querySelectorAll('#application [role="radio"]')) {
+      card.onclick = () => window.selectResume(card);
+    }
+    document.getElementById('upload').onclick = () => {
+      window.uploadEvents.push('chooser');
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.pdf';
+      input.hidden = true;
+      document.getElementById('application').appendChild(input);
+      input.onchange = () => {
+        const file = input.files[0];
+        window.uploadEvents.push(file.name);
+        input.remove();
+        if (window.uploadMode === 'reject') {
+          document.getElementById('upload-status').textContent = 'Upload rejected: ' + file.name;
+          return;
+        }
+        setTimeout(() => {
+          const card = document.createElement('div');
+          card.id = 'uploaded-resume';
+          card.setAttribute('role', 'radio');
+          card.setAttribute('aria-label', file.name);
+          card.setAttribute('aria-checked', 'false');
+          card.tabIndex = 0;
+          const radio = document.createElement('input');
+          radio.type = 'radio';
+          radio.name = 'resume';
+          radio.id = '«r3»';
+          const label = document.createElement('label');
+          label.htmlFor = radio.id;
+          const title = document.createElement('span');
+          title.textContent = file.name;
+          card.append(radio, label, title);
+          card.onclick = () => {
+            window.uploadEvents.push('select');
+            if (window.uploadMode === 'selection-rejected') return;
+            setTimeout(() => {
+              window.selectResume(card);
+              window.uploadEvents.push('selected');
+            }, 180);
+          };
+          document.querySelector('#application fieldset').appendChild(card);
+        }, 150);
+      };
+      input.click();
+    };
+    document.getElementById('next').onclick = () => {
+      window.nextClicks++;
+      document.querySelector('#application [data-testid="dialog-content"]').innerHTML =
+        '<h2>Apply to E-Solutions</h2><button id="submit">Submit application</button>';
+      document.getElementById('submit').onclick = () => { window.submitClicks++; };
+    };
+  </script>
+</body>
+</html>

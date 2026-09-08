@@ -28,7 +28,8 @@ jave/
 ├── private-profile.example.json    # Safe setup template
 ├── resume-selector.js              # Deterministic local resume selection
 ├── resumes.json                    # Base resume paths and local role signals
-├── tailor.js                       # Local tailoring, PII injection, DOCX/PDF rendering
+├── resume-tailoring.js              # Career-content Gemini gateway and constrained edits
+├── tailor.js                       # Local extraction, identity masking, DOCX/PDF rendering
 ├── applier.js                      # Local browser form filling and submission gate
 ├── applications.json               # Auto-generated application history
 └── .env                            # API keys and local browser paths; ignored by Git
@@ -41,7 +42,7 @@ jave/
 - Node.js 22.3 or higher
 - Chromium installed (`/usr/bin/chromium` on Arch Linux)
 - LibreOffice (required to convert DOCX resumes to PDF before upload)
-- A Gemini API key is optional. When configured, Gemini receives job-posting data only and extracts job requirements. Local extraction is used otherwise.
+- A Gemini API key is required for resume tailoring. Browsing and job evaluation still work without it using local requirement extraction.
 - A RapidAPI key with JSearch subscribed is optional.
 
 Install Node dependencies:
@@ -77,7 +78,7 @@ Edit `private-profile.json` and replace the placeholder values under `personal`.
 
 ### 2. Create the local career profile
 
-Professional facts used for local scoring and the locally generated resume summary belong in:
+Professional facts used for local scoring and model-assisted resume tailoring belong in:
 
 ```text
 career-profile.json
@@ -90,15 +91,15 @@ cp career-profile.example.json career-profile.json
 chmod 600 career-profile.json
 ```
 
-Fill in the headline, years of experience, education, skills, languages, and target roles. This file is also ignored by Git. Scout and Agent use it for local screening before displaying search results. The Agent also uses it after Gemini returns a job-only requirement analysis; it is never included in the Gemini request.
+Fill in the headline, years of experience, education, skills, languages, and target roles. This file is also ignored by Git. Scout and Agent use it for local screening before displaying search results. Job evaluation sends only posting data to Gemini; approving resume tailoring additionally sends these professional fields and the selected resume's career sections.
 
 ### 3. Configure base resumes
 
-Resume sources are configured in `resumes.json`. Each profile points to a trusted local DOCX. Base DOCX files should contain approved career facts and must contain a recognized section heading such as `EXPERIENCE`, `PROJECTS`, `SKILLS`, or `EDUCATION`.
+Resume sources are configured in `resumes.json`. Each profile points to a trusted local DOCX. Base DOCX files should contain approved career facts under recognized section headings, including `EXPERIENCE` or `PROJECTS` with descriptive paragraphs or bullets. A skills list alone is not enough for substantive tailoring.
 
 The local renderer ignores everything before the first recognized section. For a single source of truth, remove name, email, phone, location, and profile URLs from base resumes. The final header is always created locally from `private-profile.json`.
 
-### 4. Configure optional services
+### 4. Configure services
 
 Create a `.env` file in the project root:
 
@@ -110,7 +111,7 @@ CHROMIUM_PROFILE=/home/yourusername/.config/chromium
 JSEARCH_API_KEY=your_rapidapi_key_here
 ```
 
-`GEMINI_API_KEY` and `JSEARCH_API_KEY` are optional. The Gemini request contains only job title, company, and description. Private answers, the career profile, base resumes, and final resumes remain local.
+`GEMINI_API_KEY` is required when preparing a tailored resume; `JSEARCH_API_KEY` remains optional. Evaluation requests contain only job title, company, and description. Tailoring requests contain the complete retrieved description, allowlisted professional profile fields, and career sections extracted from the selected DOCX. Private application answers, the name/contact header, and the raw DOCX/PDF files remain local. Career history itself can still be identifying; review your source sections before approving preparation.
 
 ---
 
@@ -177,7 +178,7 @@ node apply.js "Software Engineer" --countries MY,OM
 4. Select a base DOCX locally from configured role signals
 5. Display the match summary, resume recommendation, confidence, and reason
 6. Allow `[R]` to override the resume, then wait for you to approve preparation
-7. Extract approved resume sections and prioritize matching skills locally
+7. Send the full retrieved job description, professional profile, and identity-masked career sections to Gemini for a job-specific summary and experience/project rewrites
 8. Add the name and contact header from `private-profile.json` during local DOCX rendering
 9. Convert the locally rendered DOCX to PDF with LibreOffice
 10. Open Chromium and fill supported Easy Apply controls directly from the local private profile
@@ -188,6 +189,8 @@ node apply.js "Software Engineer" --countries MY,OM
 
 Easy Apply detection waits for a visible application form with loaded controls. It supports native `<dialog>` elements, ARIA dialog/modal containers, and LinkedIn Easy Apply modal wrappers, using application labels/headings or LinkedIn classes to distinguish them from unrelated dialogs. Filling and Next/Review/Submit actions stay inside that form; hidden dialogs and background-page controls are ignored. Existing answers are preserved, and submission still requires typing `SUBMIT`.
 
+Resume steps also support roleless SDUI `dialog-content` containers identified by LinkedIn's Easy Apply screen attribute. JAVE intercepts the file chooser before clicking **Upload resume**, then waits for the newly uploaded filename's radio card to be selected. It does not retain a preselected base resume or trust an older saved file merely because its filename matches. Failed uploads or unconfirmed selections stop progression; native file inputs remain supported.
+
 Before filling a blank phone field from the private profile, JAVE selects its configured phone country code instead of accepting the dropdown's implicit first option. Dial codes match exactly: a shared code such as `+1` prompts for a country rather than picking the first match. An unanswered choice stays unresolved and blocks progression when required. Existing phone/contact answers, including the account email selection, are preserved.
 
 If the application form cannot be identified, JAVE stops rather than entering private information elsewhere on the page. Check that Chromium is signed in and the Easy Apply form opens. For an unsupported layout, capture the outer dialog wrapper, field labels/controls, and navigation buttons, with personal values redacted. Dialog identification and navigation currently recognize English application labels.
@@ -196,13 +199,13 @@ If the application form cannot be identified, JAVE stops rather than entering pr
 
 ## Resume Tailoring and PII Boundary
 
-Resume preparation is local. Gemini is not called by `tailor.js` and never receives a base resume or final resume.
+Resume tailoring uses Gemini; extraction, identity masking, rendering, PDF conversion, and browser upload run locally. Selecting **Tailor resume** in Scout or approving preparation in Agent authorizes sending the career content described below. Both interfaces display this boundary before that choice.
 
-The selector compares the job title and description with local signals in `resumes.json`. After you approve preparation, JAVE reads the selected DOCX locally, discards its pre-section header, preserves its approved career content, prioritizes matching skills, and builds a factual summary from `career-profile.json`.
+The selector compares the job title and description with local signals in `resumes.json`. JAVE reads the selected DOCX locally and discards its pre-section header. It sends the complete retrieved job description, allowlisted fields from `career-profile.json`, and structured career sections together to `gemini-3.1-flash-lite`. Known name/contact values from the private profile are masked if repeated in those sections; this is not a guarantee that career history is anonymous.
 
-Only then does the local renderer read `private-profile.json` and create the final name and contact header. The resulting DOCX is converted to PDF locally and passed directly to the browser uploader. The model has no access to either artifact.
+Gemini returns one summary and indexed edits to experience/project paragraphs or bullets. Entry headings, employers/dates stored in those headings, and skills lists remain unchanged; the old summary is removed. Validation rejects malformed edits, changed numeric facts, detectable skill/scope changes, and summary-only or nominally unchanged career output. These checks cannot prove semantic truthfulness: review the wording for unsupported claims. Missing descriptions, API failures, or invalid output stop preparation instead of silently copying a base resume.
 
-Tailored DOCX and PDF files are saved in `output`. Review the generated PDF before typing `SUBMIT`.
+The local renderer restores masked identity references and adds the name/contact header from `private-profile.json`; private application answers never enter the model request. DOCX and PDF artifacts are named `Candidate_Name_Job_Role_resume.docx` and `.pdf`, with filename-safe, bounded name/role components. Each preparation gets a separate `output/resume-.../` folder to avoid overwriting prior applications while keeping the uploaded filename short. LibreOffice uses an isolated temporary profile so conversion does not interfere with open documents. Existing output files are left unchanged. Review the generated PDF before typing `SUBMIT`.
 
 ---
 
@@ -223,4 +226,4 @@ Every job the agent processes is recorded in `applications.json`, including:
 - Jobs that redirect to external company websites are skipped by design.
 - LinkedIn can expire or revoke a session, including when it detects automation; JAVE cannot guarantee continued authentication. Complete sign-in or verification in the Agent's open Chromium window and type `RETRY` to resume the same job.
 - JSearch is optional and requires a subscribed RapidAPI key. Each search makes one JSearch request per selected country when configured; selecting more countries consumes more quota.
-- Gemini rate limits can affect job-requirement extraction. JAVE falls back to local extraction without sending candidate data.
+- Gemini rate limits can affect evaluation and tailoring. Evaluation falls back to local requirement extraction; tailoring fails explicitly without creating a fallback resume. Retry preparation after resolving the API/key/quota issue.

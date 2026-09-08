@@ -98,6 +98,7 @@ function printEvaluation(job, ev, resumeSelection) {
   if (ev.red_lines.length)  console.log(chalk.red(`  ⚠  ${ev.red_lines.join(', ')}`));
   console.log(chalk.blue(`  Resume: ${resumeSelection.profile.label}  ·  ${Math.round(resumeSelection.confidence * 100)}% confidence  ·  ${resumeSelection.method}`));
   console.log(chalk.dim(`  ${resumeSelection.reason}`));
+  console.log(chalk.yellow('  Preparation sends career profile and resume career sections with the full JD to Gemini; private answers and the contact header stay local.'));
 
   console.log(chalk.dim('\n  [Y] Prepare application   [R] Change resume   [N] Skip   [V] View JD   [Q] Quit\n'));
 }
