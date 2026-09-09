@@ -3,13 +3,14 @@ const COUNTRIES = [
   { code: 'OM', name: 'Oman' },
   { code: 'SG', name: 'Singapore' },
   { code: 'SA', name: 'Saudi Arabia' },
+  { code: 'QA', name: 'Qatar'}
 ];
-const DEFAULT_COUNTRIES = ['MY', 'OM'];
+const DEFAULT_COUNTRIES = ['MY', 'OM', 'QA'];
 const PRIORITY_AGE_HOURS = 3;
 
 function resolveCountries(codes = DEFAULT_COUNTRIES) {
   if (!Array.isArray(codes) || codes.length === 0) {
-    throw new Error('Select at least one country: MY, OM, SG, or SA.');
+    throw new Error('Select at least one country: MY, OM, SG, SA or QA.');
   }
   const selected = new Set(codes.map(value => {
     const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';

@@ -12,7 +12,8 @@ puppeteer.use(Stealth());
 
 const CHROMIUM_PATH = process.env.CHROMIUM_PATH || '/usr/bin/chromium';
 const CHROMIUM_PROFILE = process.env.CHROMIUM_PROFILE || `${process.env.HOME}/.config/chromium`;
-const APPLY_DELAY_MS = 1200;
+const MIN_STEP_DELAY_MS = 2000;
+const MAX_STEP_DELAY_MS = 4000;
 const MAX_STEPS = 10;
 const RESUME_UPLOAD_TIMEOUT_MS = 10000;
 
@@ -55,8 +56,10 @@ function resolveField(label, profile) {
   return null;
 }
 
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+async function pauseBetweenSteps(options) {
+  const delayMs = options.delayMs
+    ?? MIN_STEP_DELAY_MS + Math.floor(Math.random() * (MAX_STEP_DELAY_MS - MIN_STEP_DELAY_MS + 1));
+  if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
 }
 
 function loadApplicationProfile() {
@@ -475,8 +478,7 @@ async function uploadResume(page, root, resumePath) {
 
 async function fillFormStep(page, profile, resumePath, options = {}) {
   const ask = options.ask || askUser;
-  const delayMs = options.delayMs ?? APPLY_DELAY_MS;
-  if (delayMs) await delay(delayMs);
+  await pauseBetweenSteps(options);
 
   const root = await getFormRoot(page, true);
   try {
@@ -658,7 +660,7 @@ async function applyToJob(job, resumePath, options = {}) {
     console.log(`\n  Opening: ${jobUrl}`);
     while (true) {
       await navigateToJob(page, jobUrl);
-      await delay(APPLY_DELAY_MS);
+      await pauseBetweenSteps(options);
 
       if (await isExternalRedirect(page)) {
         return { status: 'skipped', reason: 'external_redirect' };
@@ -719,8 +721,8 @@ async function applyToJob(job, resumePath, options = {}) {
         continue;
       }
 
+      await pauseBetweenSteps(options);
       await nextButton.click();
-      await delay(APPLY_DELAY_MS);
     }
 
     return { status: 'incomplete', reason: 'max_steps_reached' };
