@@ -95,10 +95,63 @@ test('rejects summary-only, unchanged and word-reordering-only career output', a
   }
 });
 
+test('retains echoed source blocks when other career evidence is substantively tailored', async () => {
+  const result = await generateTailoredContent(job, source, profile, generate({
+    summary,
+    edits: [{ index: 5, text: source[5].text }, { index: 4, text: rewritten }],
+  }));
+  assert.equal(result.blocks.find(block => block.type === 'bullet').text, rewritten);
+  assert.deepEqual(result.blocks.find(block => block.type === 'text'), source[5]);
+});
+
 test('refuses removal of attribution that turns assisted work into an unqualified achievement', async () => {
   const blocks = structuredClone(source);
   blocks[4].text = 'Supported development of Node.js APIs with automated tests and reduced latency by 20%.';
   await assert.rejects(generateTailoredContent(job, blocks, profile, generate(response())), /removed source scope or attribution/);
+});
+
+test('accepts equivalent responsibility verbs without inventing a new leadership claim', async () => {
+  const blocks = structuredClone(source);
+  blocks[4].text = 'Led API testing with Postman to improve system reliability for internal and third-party APIs.';
+  const text = 'Managed testing of internal and third-party APIs using Postman to improve system reliability.';
+  const tailoredSummary = 'Software Engineer who managed API testing with Postman to improve system reliability.';
+  const result = await generateTailoredContent(job, blocks, profile, generate({
+    summary: tailoredSummary,
+    edits: [{ index: 4, text }],
+  }));
+  assert.equal(result.summary, tailoredSummary);
+  assert.equal(result.blocks.find(block => block.type === 'bullet').text, text);
+});
+
+test('keeps equivalent responsibility claims tied to the edited source block', async () => {
+  const blocks = structuredClone(source);
+  blocks[5].text = 'Led development of reliable services with automated tests and SQL databases.';
+  await assert.rejects(generateTailoredContent(job, blocks, profile, generate({
+    summary,
+    edits: [{ index: 4, text: 'Managed development of Node.js APIs backed by automated tests, reducing latency by 20%.' }],
+  })), /unsupported scope/);
+});
+
+test('preserves supervised responsibility while allowing equivalent wording', async () => {
+  const blocks = structuredClone(source);
+  blocks[4].text = 'Supervised development of Node.js APIs with automated tests and reduced latency by 20%.';
+  const text = 'Directed Node.js API development backed by automated tests, reducing latency by 20%.';
+  const result = await generateTailoredContent(job, blocks, profile, generate({
+    summary, edits: [{ index: 4, text }],
+  }));
+  assert.equal(result.blocks.find(block => block.type === 'bullet').text, text);
+  await assert.rejects(generateTailoredContent(job, blocks, profile, generate(response())), /removed source scope or attribution/);
+});
+
+test('leadership evidence does not authorize ownership, seniority or credentials', async () => {
+  const blocks = structuredClone(source);
+  blocks[4].text = 'Led development of Node.js APIs with automated tests and reduced latency by 20%.';
+  for (const claim of ['Owned', 'Architected', 'Senior engineer who led', 'Certified engineer who led']) {
+    await assert.rejects(generateTailoredContent(job, blocks, profile, generate({
+      summary,
+      edits: [{ index: 4, text: `${claim} development of Node.js APIs backed by automated tests, reducing latency by 20%.` }],
+    })), /unsupported scope/);
+  }
 });
 
 test('rejects malformed, duplicate and multi-paragraph output instead of generating fallback content', async () => {
