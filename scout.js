@@ -131,11 +131,11 @@ async function showDetail(job, keyword, state) {
     message: 'What would you like to do?',
     choices: [
       { name: '← Back to job list',            value: 'back' },
-      { name: '✦  Tailor resume for this job', value: 'tailor' },
+    //  { name: '✦  Tailor resume for this job', value: 'tailor' },
       { name: '✕  Exit',                        value: 'exit' },
     ],
   }]);
-
+/*
   if (action === 'tailor') {
     console.log(chalk.dim('\n  Selecting the best base resume...\n'));
     try {
@@ -152,7 +152,7 @@ async function showDetail(job, keyword, state) {
     await pause(2000);
     return showDetail(job, keyword, state);
   }
-
+*/
   if (action === 'exit') {
     console.log(chalk.dim('\n  Goodbye.\n'));
     process.exit(0);
