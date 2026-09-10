@@ -115,7 +115,8 @@ async function scrapeLinkedIn(keyword, country, recentOnly) {
   });
   return jobs;
 }
-
+// -- useless for the time being
+/*
 async function scrapeJSearch(keyword, country, recentOnly) {
   const { data } = await axios.get('https://jsearch.p.rapidapi.com/search', {
     params: {
@@ -143,7 +144,7 @@ async function scrapeJSearch(keyword, country, recentOnly) {
     source: 'JSearch',
   }, country, '', job.job_posted_at_datetime_utc));
 }
-
+*/
 function getDemoJobs(keyword, countries) {
   return countries.map(country => makeJob({
     title: keyword,
@@ -217,7 +218,7 @@ async function getJobs(keyword, options = {}) {
     } else {
       const requests = countries.flatMap(country => [
         { country, source: 'LinkedIn', scrape: scrapeLinkedIn },
-        ...(process.env.JSEARCH_API_KEY ? [{ country, source: 'JSearch', scrape: scrapeJSearch }] : []),
+        /*...(process.env.JSEARCH_API_KEY ? [{ country, source: 'JSearch', scrape: scrapeJSearch }] : []), */
       ]);
       const batches = await mapConcurrent(requests, async ({ country, source, scrape }) => {
         try {
