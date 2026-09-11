@@ -388,7 +388,9 @@ async function saveDocx(job, summary, blocks, privateProfile, careerProfile, out
   fs.writeFileSync(outPath, await Packer.toBuffer(doc));
   return outPath;
 }
-
+// - the function just connects the blocks together and
+// saves the files as docx and pdf
+// no actual tailoring is involved?, career profile/exp blocks not loaded correctly
 async function tailorResume(job, resumePath, options = {}) {
   const privateProfile = options.privateProfile || loadPrivateProfile();
   const careerProfile = options.careerProfile || loadCareerProfile();
