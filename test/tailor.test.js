@@ -79,7 +79,7 @@ test('model career edits reach DOCX and PDF while identity is rendered only loca
   const job = {
     title: 'Backend Software Engineer',
     company: 'Privacy Test Company',
-    description: 'Build Node.js APIs backed by PostgreSQL.',
+    description: 'Build Node.js APIs backed by PostgreSQL. Develop SQL services with automated tests.',
   };
 
   const result = await tailorResume(job, resumePath, {
@@ -87,16 +87,14 @@ test('model career edits reach DOCX and PDF while identity is rendered only loca
     careerProfile,
     outputDir,
     generateContent: async ({ prompt }) => {
-      assert.match(prompt, /Build Node\.js APIs backed by PostgreSQL/);
-      assert.match(prompt, /automated tests and SQL databases/);
-      assert.match(prompt, /JavaScript/);
       assert.doesNotMatch(prompt, /PRIVATE_NAME_CANARY|PRIVATE_EMAIL_CANARY|999999999|old-private@example/);
       return {
         summary: 'Software Engineer with 3 years of experience developing services with automated tests and skills in Node.js, PostgreSQL.',
-        edits: [{
-          index: 2,
-          text: 'Developed SQL-backed services, using automated tests to support reliability.',
-        }],
+        evidence: [
+          { index: 2, text: 'Developed SQL-backed services, using automated tests to support reliability.', requirement: 'SQL services with automated tests' },
+          { index: 1, text: 'Built and maintained production web applications and REST APIs.', requirement: 'APIs' },
+        ],
+        skills: ['Node.js', 'PostgreSQL', 'Python'],
       };
     },
   });
@@ -111,6 +109,12 @@ test('model career edits reach DOCX and PDF while identity is rendered only loca
   assert.match(renderedText, /Developed SQL-backed services, using automated tests to support reliability/);
   assert.match(pdfText, /Developed SQL-backed services, using automated tests to support reliability/);
   assert.doesNotMatch(renderedText, /Developed reliable services with automated tests and SQL databases/);
+  for (const text of [renderedText, pdfText]) {
+    assert.match(text, /SKILLS\s+Node\.js, PostgreSQL, Python/);
+    assert.doesNotMatch(text, /Programming Languages:|C\+\+/);
+    assert.ok(text.indexOf('SKILLS') < text.indexOf('EXPERIENCE'));
+    assert.ok(text.indexOf('Developed SQL-backed services') < text.indexOf('Built and maintained production web applications'));
+  }
   assert.equal(path.basename(result.savedTo), 'PRIVATE_NAME_CANARY_73A1_Backend_Software_Engineer_resume.docx');
   assert.equal(path.basename(result.pdfPath), 'PRIVATE_NAME_CANARY_73A1_Backend_Software_Engineer_resume.pdf');
   assert.equal(path.dirname(result.savedTo), path.dirname(result.pdfPath));
@@ -120,10 +124,12 @@ test('model career edits reach DOCX and PDF while identity is rendered only loca
     privateProfile, careerProfile, outputDir,
     generateContent: async () => ({
       summary: 'Software Engineer with 3 years of experience developing services with automated tests and skills in Node.js, PostgreSQL.',
-      edits: [{
+      evidence: [{
         index: 1,
         text: 'Implemented REST APIs while building and maintaining production web applications.',
+        requirement: 'APIs',
       }],
+      skills: ['PostgreSQL', 'Node.js'],
     }),
   });
   assert.equal(path.basename(later.pdfPath), path.basename(result.pdfPath));

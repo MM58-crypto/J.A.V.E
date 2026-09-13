@@ -28,7 +28,7 @@ jave/
 ├── private-profile.example.json    # Safe setup template
 ├── resume-selector.js              # Deterministic local resume selection
 ├── resumes.json                    # Base resume paths and local role signals
-├── resume-tailoring.js              # Career-content Gemini gateway and constrained edits
+├── resume-tailoring.js             # Evidence-grounded Gemini tailoring and skills curation
 ├── tailor.js                       # Local extraction, identity masking, DOCX/PDF rendering
 ├── applier.js                      # Local browser form filling and submission gate
 ├── applications.json               # Auto-generated application history
@@ -178,7 +178,7 @@ node apply.js "Software Engineer" --countries MY,OM
 4. Select a base DOCX locally from configured role signals
 5. Display the match summary, resume recommendation, confidence, and reason
 6. Allow `[R]` to override the resume, then wait for you to approve preparation
-7. Send the full retrieved job description, professional profile, and identity-masked career sections to Gemini for a job-specific summary and experience/project rewrites
+7. Send the full retrieved job description, professional profile, and identity-masked career sections to Gemini for a job-specific summary, selected/reframed career evidence, and prioritized skills
 8. Add the name and contact header from `private-profile.json` during local DOCX rendering
 9. Convert the locally rendered DOCX to PDF with LibreOffice
 10. Open Chromium and fill supported Easy Apply controls directly from the local private profile
@@ -201,15 +201,17 @@ If the application form cannot be identified, JAVE stops rather than entering pr
 
 ## Resume Tailoring and PII Boundary
 
-Resume tailoring uses Gemini; extraction, identity masking, rendering, PDF conversion, and browser upload run locally. Selecting **Tailor resume** in Scout or approving preparation in Agent authorizes sending the career content described below. Both interfaces display this boundary before that choice.
+Resume tailoring uses Gemini; extraction, identity masking, rendering, PDF conversion, and browser upload run locally. Approving preparation in Agent authorizes sending the career content described below. Scout's tailoring action is currently disabled; job browsing remains available.
 
 The selector compares the job title and description with local signals in `resumes.json`. JAVE reads the selected DOCX locally and discards its pre-section header. It sends the complete retrieved job description, allowlisted fields from `career-profile.json`, and structured career sections together to `gemini-3.1-flash-lite`. Known name/contact values from the private profile are masked if repeated in those sections; this is not a guarantee that career history is anonymous.
 
-Gemini returns one summary and indexed edits to experience/project paragraphs or bullets. Entry headings, employers/dates stored in those headings, and skills lists remain unchanged; the old summary is removed. Each editable block includes locally extracted fact constraints so generation and validation use the same numeric facts, skills, scope and attribution evidence.
+Gemini returns a job-specific summary, a complete selection of indexed experience/project evidence, and a ranked skills shortlist. It reviews all editable career blocks, reframes task-oriented wording around the employer's needs, and can omit less relevant or redundant bullets. Relevant evidence cites an excerpt from the retrieved description; context-only evidence is allowed without inventing a match. The application checks that those excerpts exist in the posting, not that they prove semantic relevance.
 
-Validation accepts equivalent responsibility verbs (`led`, `managed`, `supervised`, `directed`) when the source block already establishes that responsibility, but does not treat them as evidence of ownership, higher seniority or credentials. Unchanged blocks echoed alongside substantive rewrites are kept untouched; summary-only, unchanged-only and word-reordering-only output still fails. Malformed edits, changed numeric facts and detectable unsupported skill/scope changes are rejected.
+Selection and ordering apply only within each contiguous group of career evidence. Entry headings, employers, dates, education and credentials remain in their original positions; every evidence group retains at least one block. A bullet's claims must come from that same source block, not another job or a profile-only skill. Already-effective wording may remain unchanged: selection, prioritization and skills curation are legitimate tailoring, with no word-change quota. A new summary with otherwise unchanged evidence and skills still fails.
 
-These checks cannot prove semantic truthfulness: review the wording for unsupported claims. Missing descriptions, API failures, or invalid output stop preparation instead of silently copying a base resume.
+Skills can be selected from the career profile, the base skills section, or exact technology/competency phrases demonstrated in career evidence. Unsupported and duplicate selections are rejected. The selected skills render once, in ranked order immediately below the summary, replacing the old skills section. Lower-priority skills and secondary technology mentions in bullets may be omitted without pretending the candidate has new ones.
+
+Each selected block is checked against numeric facts, known skills, responsibility, scope, attribution and outcome direction. Equivalent contribution wording (for example, “supported” to “contributed to”) is allowed, as are equivalent established responsibility verbs (`led`, `managed`, `supervised`, `directed`); neither permits an upgrade to ownership, seniority or credentials. These mechanical checks cannot prove semantic truthfulness or the quality of the job match. Review the selected evidence, omissions, skills and wording in the generated PDF. Missing descriptions, API failures, malformed output and detectable factual violations stop preparation instead of silently copying a base resume.
 
 The local renderer restores masked identity references and adds the name/contact header from `private-profile.json`; private application answers never enter the model request. DOCX and PDF artifacts are named `Candidate_Name_Job_Role_resume.docx` and `.pdf`, with filename-safe, bounded name/role components. Each preparation gets a separate `output/resume-.../` folder to avoid overwriting prior applications while keeping the uploaded filename short. LibreOffice uses an isolated temporary profile so conversion does not interfere with open documents. Existing output files are left unchanged. Review the generated PDF before typing `SUBMIT`.
 
