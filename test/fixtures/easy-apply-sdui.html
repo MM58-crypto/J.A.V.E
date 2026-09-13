@@ -74,7 +74,7 @@
             Object.entries(fields).map(([name, id]) => [name, document.getElementById(id).value])
           );
           record('next');
-          dialog.innerHTML = '<header id="dialog-header"><h2>Apply to Example Company</h2></header><p id="review-step">Review your application</p><button id="submit">Submit application</button>';
+          dialog.innerHTML = '<header id="dialog-header"><h2>Apply to Example Company</h2></header><p id="review-step">Review your application</p><label for="resume">Resume</label><input id="resume" type="file" accept=".pdf"><button id="submit">Submit application</button>';
           document.getElementById('submit').onclick = () => {
             record('application-submit');
             dialog.innerHTML = '<p>Application was sent</p>';

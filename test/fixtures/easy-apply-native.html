@@ -63,6 +63,7 @@
           dialog.innerHTML = `
             <h2 id="application-title">Apply to Example Company</h2>
             <p id="review-step">Review your application</p>
+            <label for="resume">Resume</label><input id="resume" type="file" accept=".pdf">
             <button id="submit">Submit application</button>
           `;
           document.getElementById('submit').addEventListener('click', () => {
