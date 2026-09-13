@@ -278,6 +278,8 @@ async function radioMetadata(page, radio) {
       checked: el.checked,
       required: el.required || el.getAttribute('aria-required') === 'true',
       resume: Boolean(container?.querySelector('#easyApplyUploadedResumeRef'))
+        || /\b(resume|cv)\b/i.test(`${question} ${el.name}`)
+        || /\.(pdf|docx?)$/i.test(option.trim())
         || Boolean(el.closest('[role="radio"][aria-label]')?.getAttribute('aria-label')?.match(/\.(pdf|docx?)$/i)),
       visible: !el.disabled && Boolean(el.offsetWidth || el.offsetHeight || el.getClientRects().length),
     };
@@ -354,6 +356,130 @@ async function fillCheckboxFields(page, root, profile, ask) {
   return records;
 }
 
+function resumeArtifact(resumePath) {
+  const stat = fs.statSync(resumePath, { bigint: true });
+  return [path.resolve(resumePath), stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
+}
+
+// Runs in the active form. Confirmation is tied to the actual control, not just
+// its filename; replacing a card or changing a file requires another confirmation.
+function inspectResumeStep(el, confirm = false) {
+  const visible = element => !element.closest('[hidden], [aria-hidden="true"], [inert]')
+    && element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+  const filenamePattern = /\.(pdf|docx?)$/i;
+  const labelFor = input => input.labels?.[0]?.innerText
+    || input.getAttribute('aria-label')
+    || input.closest('fieldset, .fb-dash-form-element, [data-test-form-element]')
+      ?.querySelector('legend, .fb-dash-form-element__label')?.innerText || '';
+  const cards = Array.from(el.querySelectorAll('[role="radio"][aria-label]'))
+    .filter(card => visible(card) && filenamePattern.test(card.getAttribute('aria-label') || ''));
+  const radios = Array.from(el.querySelectorAll('input[type="radio"]'))
+    .filter(input => !input.closest('[role="radio"]') && visible(input)
+      && (/\b(resume|cv)\b/i.test(`${input.name} ${labelFor(input)}`)
+        || filenamePattern.test(labelFor(input).trim())));
+  const inputs = Array.from(el.querySelectorAll('input[type="file"]'))
+    .filter(input => !input.disabled && input.parentElement && visible(input.parentElement));
+  const resumeInputs = inputs.filter(input => /resume|cv/i.test(labelFor(input))
+    || (inputs.length === 1 && !/cover letter/i.test(labelFor(input))));
+  const otherFiles = inputs.filter(input => !resumeInputs.includes(input)).map(input => ({
+    label: labelFor(input).trim() || 'File upload',
+    value: input.files?.[0]?.name || '',
+    required: input.required || input.getAttribute('aria-required') === 'true',
+  }));
+  const group = el.querySelector('#easyApplyUploadedResumeRef');
+  const upload = Array.from(el.querySelectorAll('button')).some(button => visible(button)
+    && [button.innerText, button.getAttribute('aria-label')]
+      .some(text => /^upload\s+(resume|cv)$/i.test((text || '').trim())));
+  const present = Boolean(cards.length || radios.length || resumeInputs.length || (group && visible(group)) || upload);
+  if (!present) return { present, otherFiles };
+
+  const feedback = Array.from(el.querySelectorAll(
+    '[role="alert"], [role="status"], [aria-live], .artdeco-inline-feedback--error, [aria-invalid="true"]',
+  )).filter(visible).map(node => node.innerText || node.getAttribute('aria-label') || '').join(' ');
+  let problem = '';
+  if (Array.from(el.querySelectorAll('[aria-busy="true"], [role="progressbar"]')).some(visible)
+    || /\b(uploading|processing)\b/i.test(feedback)) {
+    problem = 'The upload is still processing. Wait for it to finish before confirming.';
+  } else if (/\b(rejected?|failed?|error|invalid|unsupported|unable)\b|too large|could not/i.test(feedback)) {
+    problem = 'The form reports an upload or validation error. Resolve it before confirming the resume.';
+  }
+  if (cards.some(card => {
+    const input = card.querySelector('input[type="radio"]');
+    return input && input.checked !== (card.getAttribute('aria-checked') === 'true');
+  })) problem ||= 'Resume controls disagree about the selection. Select the resume again before confirming.';
+
+  const choices = cards.length
+    ? cards.filter(card => !card.hasAttribute('disabled') && card.getAttribute('aria-disabled') !== 'true'
+      && card.getAttribute('aria-checked') === 'true'
+      && (!card.querySelector('input[type="radio"]') || card.querySelector('input[type="radio"]').checked))
+    : radios.length ? radios.filter(input => !input.disabled && input.checked)
+      : group ? [] : resumeInputs.filter(input => input.files?.length === 1);
+  const selected = choices.length === 1 ? choices[0] : null;
+  const file = selected?.type === 'file' ? selected.files[0] : null;
+  const filename = file ? file.name : selected?.getAttribute('aria-label')
+    || (selected ? labelFor(selected).trim() || selected.value : '');
+  const signature = selected ? JSON.stringify(file
+    ? [file.name, file.size, file.lastModified]
+    : [filename, selected.innerHTML, selected.value]) : '';
+  if (!selected || !filename) problem ||= 'Select one resume or upload a file in the browser before confirming.';
+  if (selected && !problem && confirm) {
+    el.__javeConfirmedResume = { control: selected, signature };
+  }
+  return {
+    present, otherFiles, filename, problem,
+    confirmed: Boolean(selected && !problem && el.__javeConfirmedResume?.control === selected
+      && el.__javeConfirmedResume.signature === signature),
+    uploaded: Boolean(selected && el.__javeVerifiedResumeControl === selected),
+  };
+}
+
+async function confirmResumeSelection(page, resume, options) {
+  const ask = options.ask || askUser;
+  const output = options.output || console.log;
+  const state = options.resumeState ||= {};
+  let awaitingConfirmation = false;
+  let confirm = false;
+  while (true) {
+    const root = await getFormRoot(page);
+    if (!root) return { fields: [], cancelled: false, missingRoot: true };
+    let snapshot;
+    try {
+      snapshot = await root.evaluate(inspectResumeStep, confirm);
+      const fields = snapshot.otherFiles.map(file =>
+        createRecord(file.label, 'file', file.value, file.value ? 'existing' : 'unresolved', file.required));
+      if (!snapshot.present && !awaitingConfirmation) return { fields, cancelled: false };
+      if (snapshot.present && resume.mode === 'local') {
+        const artifact = resumeArtifact(resume.path);
+        if (state.uploadedArtifact !== artifact) {
+          await uploadResume(page, root, resume.path);
+          state.uploadedArtifact = artifact;
+          awaitingConfirmation = true;
+          confirm = false;
+          continue;
+        }
+      }
+      if (snapshot.present && snapshot.confirmed) {
+        if (confirm) state.confirmationVersion = (state.confirmationVersion || 0) + 1;
+        state.confirmedResume = {
+          mode: resume.mode === 'local' && snapshot.uploaded ? 'local' : 'browser',
+          filename: snapshot.filename,
+        };
+        fields.push(createRecord('Resume', 'file', snapshot.filename, 'user', true));
+        return { fields, cancelled: false };
+      }
+    } finally {
+      await root.dispose();
+    }
+    if (confirm) output(`  ${snapshot.problem || 'Return to the resume step to confirm your selection.'}`);
+    output(`  Resume: ${snapshot.filename || '[none selected]'}. Select a saved resume or upload a file in the browser.`);
+    const decision = String(await ask('[C] Confirm resume selection and continue, or [X] Cancel application')).trim().toLowerCase();
+    if (decision === 'x') return { fields: [], cancelled: true };
+    confirm = decision === 'c';
+    awaitingConfirmation = true;
+    if (!confirm) output('  Resume not confirmed. Enter C to confirm or X to cancel.');
+  }
+}
+
 async function uploadResume(page, root, resumePath) {
   const fileInputs = await root.$$('input[type="file"]');
   const buttons = await root.$$('button');
@@ -367,14 +493,11 @@ async function uploadResume(page, root, resumePath) {
     else await button.dispose();
   }
   const resumeGroup = await root.$('#easyApplyUploadedResumeRef');
-  if (!fileInputs.length && !uploadButton && !resumeGroup) return [];
+  if (!fileInputs.length && !uploadButton && !resumeGroup) return;
 
   const filename = path.basename(resumePath);
-  const stat = fs.statSync(resumePath, { bigint: true });
-  const artifact = [path.resolve(resumePath), stat.dev, stat.ino, stat.size, stat.mtimeNs, stat.ctimeNs].join(':');
-  const records = [];
+  const artifact = resumeArtifact(resumePath);
   let resumeInput;
-  let resumeLabel = 'Resume';
   try {
     for (const [index, fileInput] of fileInputs.entries()) {
       const field = await inspectElement(page, fileInput);
@@ -385,12 +508,9 @@ async function uploadResume(page, root, resumePath) {
       const isResume = /resume|cv/i.test(label) || (fileInputs.length === 1 && !/cover letter/i.test(label));
       if (isResume && usable && !resumeInput) {
         resumeInput = fileInput;
-        resumeLabel = label;
-      } else if (!isResume && usable) {
-        records.push(createRecord(label, 'file', '', 'unresolved', field.required));
       }
     }
-    if (!resumeInput && !uploadButton && !resumeGroup) return records;
+    if (!resumeInput && !uploadButton && !resumeGroup) return;
 
     // The marker belongs to this DOM scope and this exact local artifact, not a
     // saved filename. Navigation, replacement forms and regenerated PDFs invalidate it.
@@ -407,10 +527,7 @@ async function uploadResume(page, root, resumePath) {
       return Array.from(el.querySelectorAll('input[type="file"]')).some(input =>
         input === el.__javeVerifiedResumeControl && input.files?.[0]?.name === name);
     }, filename);
-    if (verified && selected) {
-      records.push(createRecord(resumeLabel, 'file', filename, 'profile', true));
-      return records;
-    }
+    if (verified && selected) return;
 
     // Remember matching saved cards before uploading. A rejected upload must not
     // pass merely because an older, identically named resume is already selected.
@@ -464,8 +581,6 @@ async function uploadResume(page, root, resumePath) {
     } finally {
       await confirmation.dispose();
     }
-    records.push(createRecord(resumeLabel, 'file', filename, 'profile', true));
-    return records;
   } catch (error) {
     throw new Error(`Resume upload or selection could not be confirmed for "${filename}": ${error.message}`, { cause: error });
   } finally {
@@ -476,49 +591,70 @@ async function uploadResume(page, root, resumePath) {
   }
 }
 
-async function fillFormStep(page, profile, resumePath, options = {}) {
+async function fillFormStep(page, profile, resume, options = {}) {
   const ask = options.ask || askUser;
   await pauseBetweenSteps(options);
 
   const root = await getFormRoot(page, true);
+  let fields;
   try {
-    const fields = [
+    fields = [
       ...await fillSelectFields(page, root, profile, ask),
       ...await fillTextFields(page, root, profile, ask),
       ...await fillRadioFields(page, root, profile, ask),
       ...await fillCheckboxFields(page, root, profile, ask),
-      ...await uploadResume(page, root, resumePath),
     ];
-    const unresolvedRequired = fields.filter(field => field.required && !field.value);
-    return { fields, unresolvedRequired };
   } finally {
     await root.dispose();
   }
+  const selection = await confirmResumeSelection(page, resume, options);
+  fields.push(...selection.fields);
+  if (selection.missingRoot) fields.push(createRecord('Application form', 'form', '', 'unresolved', true));
+  return {
+    fields,
+    unresolvedRequired: fields.filter(field => field.required && !field.value),
+    cancelled: selection.cancelled,
+  };
 }
 
 function mergeReviewFields(reviewFields, fields) {
   for (const field of fields) reviewFields.set(field.key, field);
 }
 
-function printApplicationReview(job, reviewFields, resumePath, output = console.log) {
+function printApplicationReview(job, reviewFields, output = console.log) {
   output('\n  Application review');
   output(`  Job: ${job.title} at ${job.company}`);
   for (const field of reviewFields.values()) {
     output(`  ${field.label}: ${field.value || '[blank]'} (${field.source})`);
   }
-  output(`  Resume: ${path.basename(resumePath)}`);
+  if (!reviewFields.get('file:resume')?.value) output('  Resume: [not confirmed]');
   output('\n  Verify the open browser form. Nothing has been submitted.');
 }
 
-async function reviewAndConfirm(page, job, reviewFields, profile, resumePath, options = {}) {
+async function reviewAndConfirm(page, job, reviewFields, profile, resume, options = {}) {
   const ask = options.ask || askUser;
   const output = options.output || console.log;
 
   while (true) {
-    printApplicationReview(job, reviewFields, resumePath, output);
+    const selection = await confirmResumeSelection(page, resume, options);
+    if (selection.cancelled) return 'cancel';
+    mergeReviewFields(reviewFields, selection.fields);
+    if (selection.missingRoot || !reviewFields.get('file:resume')?.value) return 'incomplete';
+    printApplicationReview(job, reviewFields, output);
     const decision = normalize(await ask('Type SUBMIT to submit, EDIT to change the form in the browser, or CANCEL'));
 
-    if (decision === 'submit') return 'submit';
+    if (decision === 'submit') {
+      const version = options.resumeState.confirmationVersion;
+      const current = await confirmResumeSelection(page, resume, options);
+      if (current.cancelled) return 'cancel';
+      if (current.missingRoot) return 'incomplete';
+      mergeReviewFields(reviewFields, current.fields);
+      if (options.resumeState.confirmationVersion !== version) {
+        output('  Resume selection changed. Review the updated application before typing SUBMIT again.');
+        continue;
+      }
+      return 'submit';
+    }
     if (decision === 'cancel') return 'cancel';
     if (decision !== 'edit') {
       output('  Submission not confirmed. Enter SUBMIT, EDIT, or CANCEL.');
@@ -526,8 +662,10 @@ async function reviewAndConfirm(page, job, reviewFields, profile, resumePath, op
     }
 
     await ask('Edit the browser form, return to its final step, then press Enter to review again');
-    const refreshed = await fillFormStep(page, profile, resumePath, { ask, delayMs: 0 });
+    const refreshed = await fillFormStep(page, profile, resume, { ...options, ask, delayMs: 0 });
+    if (refreshed.cancelled) return 'cancel';
     mergeReviewFields(reviewFields, refreshed.fields);
+    if (refreshed.unresolvedRequired.length) return 'incomplete';
   }
 }
 
@@ -604,31 +742,48 @@ async function waitForSubmissionConfirmation(page) {
   }
 }
 
-async function submitReviewedApplication(page, job, reviewFields, profile, resumePath, options = {}) {
-  const decision = await reviewAndConfirm(page, job, reviewFields, profile, resumePath, options);
+async function submitReviewedApplication(page, job, reviewFields, profile, resume, options = {}) {
+  const decision = await reviewAndConfirm(page, job, reviewFields, profile, resume, options);
+  const selectedResume = options.resumeState?.confirmedResume
+    ? { resume: options.resumeState.confirmedResume } : {};
   if (decision === 'cancel') {
-    return { status: 'cancelled', reason: 'user_cancelled_before_submission', reviewed: true };
+    return { status: 'cancelled', reason: 'user_cancelled_before_submission', reviewed: true, ...selectedResume };
+  }
+  if (decision === 'incomplete') {
+    return { status: 'incomplete', reason: 'resume_or_form_not_confirmed', reviewed: true, ...selectedResume };
   }
 
   const submitButton = await findButton(page, [/submit application/i, /^submit$/i]);
   if (!submitButton) {
-    return { status: 'incomplete', reason: 'submit_button_missing_after_review', reviewed: true };
+    return { status: 'incomplete', reason: 'submit_button_missing_after_review', reviewed: true, ...selectedResume };
   }
   await submitButton.click();
   const confirmed = await waitForSubmissionConfirmation(page);
   return confirmed
-    ? { status: 'applied', reviewed: true }
-    : { status: 'submitted_unconfirmed', reason: 'submission_confirmation_not_detected', reviewed: true };
+    ? { status: 'applied', reviewed: true, ...selectedResume }
+    : { status: 'submitted_unconfirmed', reason: 'submission_confirmation_not_detected', reviewed: true, ...selectedResume };
 }
 
-async function applyToJob(job, resumePath, options = {}) {
-  const absoluteResumePath = path.resolve(resumePath);
-  if (!fs.existsSync(absoluteResumePath)) {
-    return { status: 'error', reason: `resume_not_found:${absoluteResumePath}` };
+async function applyToJob(job, resume, options = {}) {
+  if (!resume || !['browser', 'local'].includes(resume.mode)) {
+    return { status: 'error', reason: 'invalid_resume_choice' };
   }
-  if (path.extname(absoluteResumePath).toLowerCase() !== '.pdf') {
-    return { status: 'error', reason: 'resume_must_be_pdf' };
+  if (resume.mode === 'local') {
+    if (typeof resume.path !== 'string' || !resume.path.trim()) {
+      return { status: 'error', reason: 'resume_path_required' };
+    }
+    const absolutePath = path.resolve(resume.path);
+    if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
+      return { status: 'error', reason: `resume_not_found:${absolutePath}` };
+    }
+    if (path.extname(absolutePath).toLowerCase() !== '.pdf') {
+      return { status: 'error', reason: 'resume_must_be_pdf' };
+    }
+    resume = { mode: 'local', path: absolutePath };
   }
+  options = { ...options, resumeState: {} };
+  const finish = result => options.resumeState.confirmedResume
+    ? { ...result, resume: options.resumeState.confirmedResume } : result;
 
   let profile;
   try {
@@ -685,39 +840,41 @@ async function applyToJob(job, resumePath, options = {}) {
 
     for (let step = 1; step <= MAX_STEPS; step++) {
       if (await isExternalRedirect(page)) {
-        return { status: 'skipped', reason: 'external_redirect_mid_apply' };
+        return finish({ status: 'skipped', reason: 'external_redirect_mid_apply' });
       }
 
-      const filled = await fillFormStep(page, profile, absoluteResumePath, options);
+      const filled = await fillFormStep(page, profile, resume, options);
+      if (filled.cancelled) return finish({ status: 'cancelled', reason: 'user_cancelled_resume_selection' });
       mergeReviewFields(reviewFields, filled.fields);
 
       if (filled.unresolvedRequired.length) {
         const labels = filled.unresolvedRequired.map(field => field.label).join(', ');
         await (options.ask || askUser)(`Required fields still need attention in the browser: ${labels}. Press Enter when complete`);
-        const refreshed = await fillFormStep(page, profile, absoluteResumePath, { ...options, delayMs: 0 });
+        const refreshed = await fillFormStep(page, profile, resume, { ...options, delayMs: 0 });
+        if (refreshed.cancelled) return finish({ status: 'cancelled', reason: 'user_cancelled_resume_selection' });
         mergeReviewFields(reviewFields, refreshed.fields);
         if (refreshed.unresolvedRequired.length) {
-          return { status: 'incomplete', reason: 'required_fields_unresolved' };
+          return finish({ status: 'incomplete', reason: 'required_fields_unresolved' });
         }
       }
 
       const submitButton = await findButton(page, [/submit application/i, /^submit$/i]);
       if (submitButton) {
         // Keep the browser open while the user reviews and confirms.
-        return await submitReviewedApplication(
+        return finish(await submitReviewedApplication(
           page,
           job,
           reviewFields,
           profile,
-          absoluteResumePath,
+          resume,
           options,
-        );
+        ));
       }
 
       const nextButton = await findButton(page, [/^next$/i, /^continue$/i, /review/i]);
       if (!nextButton) {
         const action = normalize(await (options.ask || askUser)('No Next or Submit button was found. Enter RETRY after manual correction or SKIP'));
-        if (action !== 'retry') return { status: 'incomplete', reason: 'form_navigation_stalled' };
+        if (action !== 'retry') return finish({ status: 'incomplete', reason: 'form_navigation_stalled' });
         continue;
       }
 
@@ -725,9 +882,9 @@ async function applyToJob(job, resumePath, options = {}) {
       await nextButton.click();
     }
 
-    return { status: 'incomplete', reason: 'max_steps_reached' };
+    return finish({ status: 'incomplete', reason: 'max_steps_reached' });
   } catch (error) {
-    return { status: 'error', reason: error.message };
+    return finish({ status: 'error', reason: error.message });
   } finally {
     if (browser) await browser.close().catch(() => {});
   }
