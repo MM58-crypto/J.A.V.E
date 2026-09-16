@@ -103,9 +103,17 @@
     };
     document.getElementById('next').onclick = () => {
       window.nextClicks++;
-      document.querySelector('#application [data-testid="dialog-content"]').innerHTML =
-        '<h2>Apply to E-Solutions</h2><button id="submit">Submit application</button>';
-      document.getElementById('submit').onclick = () => { window.submitClicks++; };
+      document.getElementById('upload').hidden = true;
+      document.querySelector('#application footer').hidden = true;
+      const review = document.createElement('div');
+      review.innerHTML = '<p>Review your application</p><button id="submit">Submit application</button>';
+      document.querySelector('#application [data-testid="dialog-content"]').appendChild(review);
+      document.getElementById('submit').onclick = () => {
+        window.submitClicks++;
+        const confirmation = document.createElement('p');
+        confirmation.textContent = 'Application was sent';
+        document.getElementById('application').appendChild(confirmation);
+      };
     };
   </script>
 </body>

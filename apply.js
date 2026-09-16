@@ -16,7 +16,6 @@ const path       = require('path');
 const { getJobs } = require('./scrapers');
 const { loadCareerProfile } = require('./career-profile');
 const { evaluateJob }  = require('./evaluator');
-const { tailorResume } = require('./tailor');
 const { applyToJob } = require('./applier');
 const {
   loadResumeConfig,
@@ -48,7 +47,11 @@ function logApplication(job, evaluation, result, resumeSelection = null) {
     status:    result.status,
     reason:    result.reason || '',
     reviewed:  Boolean(result.reviewed),
-    ...(resumeSelection ? {
+    ...(result.resume ? {
+      resume_filename: result.resume.filename,
+      resume_mode: result.resume.mode,
+    } : {}),
+    ...(result.resume?.mode === 'local' && resumeSelection ? {
       resume_profile: resumeSelection.profile.id,
       resume_selection_confidence: resumeSelection.confidence,
       resume_selection_reason: resumeSelection.reason,
@@ -84,7 +87,7 @@ function waitForKey(validKeys) {
 
 // ── human in the loop display ─────────────────────────────────────────────────
 
-function printEvaluation(job, ev, resumeSelection) {
+function printEvaluation(job, ev, resumeSelection, resumeChoice, tailoringError) {
   const scoreColor = ev.score >= 70 ? chalk.greenBright : ev.score >= 50 ? chalk.yellow : chalk.red;
 
   console.log(chalk.dim('\n  ────────────────────────────────────────────'));
@@ -96,21 +99,29 @@ function printEvaluation(job, ev, resumeSelection) {
   if (ev.matched.length)    console.log(chalk.green(`  ✓ ${ev.matched.slice(0, 5).join('  ✓ ')}`));
   if (ev.missing.length)    console.log(chalk.red(`  ✗ ${ev.missing.slice(0, 3).join('  ✗ ')}`));
   if (ev.red_lines.length)  console.log(chalk.red(`  ⚠  ${ev.red_lines.join(', ')}`));
-  console.log(chalk.blue(`  Resume: ${resumeSelection.profile.label}  ·  ${Math.round(resumeSelection.confidence * 100)}% confidence  ·  ${resumeSelection.method}`));
-  console.log(chalk.dim(`  ${resumeSelection.reason}`));
-  console.log(chalk.yellow('  Preparation sends career profile and resume career sections with the full JD to Gemini; private answers and the contact header stay local.'));
+  if (resumeSelection) {
+    console.log(chalk.blue(`  Tailoring base: ${resumeSelection.profile.label}  ·  ${Math.round(resumeSelection.confidence * 100)}% confidence  ·  ${resumeSelection.method}`));
+    console.log(chalk.dim(`  ${resumeSelection.reason}`));
+  } else {
+    console.log(chalk.yellow(`  Tailoring base unavailable; T/R unavailable: ${tailoringError}`));
+  }
+  console.log(chalk.blue(resumeChoice.mode === 'local'
+    ? `  Application resume: prepared PDF ${resumeChoice.path} (confirm the actual selection in LinkedIn).`
+    : '  Application resume: choose a saved resume or upload one yourself in LinkedIn.'));
+  console.log(chalk.yellow('  Only T authorizes tailoring: it sends career profile and base-resume career sections with the full JD to Gemini; private answers and the contact header stay local.'));
+  console.log(chalk.dim('  Tailoring and a local resume are optional. Confirm the selected resume with C (X cancels); final SUBMIT is separate.'));
 
-  console.log(chalk.dim('\n  [Y] Prepare application   [R] Change resume   [N] Skip   [V] View JD   [Q] Quit\n'));
+  console.log(chalk.dim('\n  [Y] Start application   [T] Tailor resume (optional)   [R] Change tailoring base   [V] View JD   [N] Skip   [Q] Quit\n'));
 }
 
 async function promptResumeOverride(config, currentSelection) {
   const { profileId } = await inquirer.prompt([{
     type: 'list',
     name: 'profileId',
-    message: 'Choose the base resume:',
+    message: 'Choose the tailoring base resume (not the application resume):',
     choices: config.profiles.map(profile => ({
       name: profile.id === currentSelection.profile.id
-        ? `${profile.label} (recommended)`
+        ? `${profile.label} (current tailoring base)`
         : profile.label,
       value: profile.id,
     })),
@@ -150,7 +161,6 @@ async function main() {
     return;
   }
 
-  const resumeConfig = loadResumeConfig();
   const batch = jobs.slice(0, MAX_JOBS);
   console.log(chalk.dim(`  Found ${jobs.length} locally matched jobs, newest first — processing up to ${batch.length}.`));
   console.log(jobs[0].hoursAgo < PRIORITY_AGE_HOURS
@@ -175,21 +185,62 @@ async function main() {
       continue;
     }
 
-    process.stdout.write(chalk.dim(`  Selecting resume for "${job.title}"...`));
-    let resumeSelection = await selectResume(job, { config: resumeConfig });
-    process.stdout.write('\r' + ' '.repeat(60) + '\r');
+    let resumeConfig = null;
+    let resumeSelection = null;
+    let tailoringError = '';
+    try {
+      resumeConfig = loadResumeConfig();
+      resumeSelection = await selectResume(job, { config: resumeConfig });
+    } catch (error) {
+      resumeConfig = null;
+      tailoringError = error.message;
+    }
+    let resumeChoice = { mode: 'browser' };
+    let preparedSelection = null;
 
-    // human in the loop
-    printEvaluation(job, ev, resumeSelection);
+    // human in the loop — only T prepares a local application resume
     let key = null;
     while (!['y', 'n', 'q'].includes(key)) {
-      key = await waitForKey(['y', 'n', 'v', 'r', 'q']);
+      printEvaluation(job, ev, resumeSelection, resumeChoice, tailoringError);
+      key = await waitForKey(['y', 't', 'r', 'v', 'n', 'q']);
       if (key === 'v') {
         console.log(chalk.dim('\n' + (job.description || '').slice(0, 800) + '\n'));
       } else if (key === 'r') {
-        resumeSelection = await promptResumeOverride(resumeConfig, resumeSelection);
-        printEvaluation(job, ev, resumeSelection);
-        key = null;
+        if (!resumeConfig) {
+          console.log(chalk.yellow(`  Cannot change tailoring base: ${tailoringError}. Y is still available.`));
+          continue;
+        }
+        try {
+          const selection = await promptResumeOverride(resumeConfig, resumeSelection);
+          if (selection.profile.path !== resumeSelection.profile.path) {
+            resumeChoice = { mode: 'browser' };
+            preparedSelection = null;
+            console.log(chalk.dim('  Tailoring base changed; any prepared PDF is no longer selected. Use T to prepare this base, or Y to choose in LinkedIn.'));
+          }
+          resumeSelection = selection;
+        } catch (error) {
+          console.log(chalk.yellow(`  Could not change tailoring base: ${error.message}. The previous selection is unchanged.`));
+        }
+      } else if (key === 't') {
+        if (!resumeSelection) {
+          console.log(chalk.yellow(`  Cannot tailor a resume: ${tailoringError}. Y is still available.`));
+          continue;
+        }
+        resumeChoice = { mode: 'browser' };
+        preparedSelection = null;
+        console.log(chalk.dim('\n  Tailoring resume...'));
+        try {
+          const { tailorResume } = require('./tailor');
+          const { savedTo, pdfPath } = await tailorResume(job, resumeSelection.profile.path);
+          resumeChoice = { mode: 'local', path: path.resolve(pdfPath) };
+          preparedSelection = resumeSelection;
+          console.log(chalk.green(`  DOCX saved: ${savedTo}`));
+          console.log(chalk.green(`  PDF ready:  ${pdfPath}`));
+          console.log(chalk.dim('  Tailoring complete; choose Y when ready to start the application.'));
+        } catch (error) {
+          console.log(chalk.red(`  Resume tailoring failed: ${error.message}`));
+          console.log(chalk.dim('  No prepared PDF is selected. Choose Y to select or upload a resume in LinkedIn, or T to try again.'));
+        }
       }
     }
 
@@ -199,32 +250,16 @@ async function main() {
     }
 
     if (key === 'n') {
-      logApplication(job, ev, { status: 'manually_skipped' }, resumeSelection);
-      skipped++;
-      continue;
-    }
-
-    // approved — tailor and convert resume
-    console.log(chalk.dim('\n  Tailoring resume...'));
-    let resumePath;
-    try {
-      const { savedTo, pdfPath } = await tailorResume(job, resumeSelection.profile.path);
-      resumePath = path.resolve(pdfPath);
-      console.log(chalk.green(`  Resume saved: ${savedTo}`));
-      console.log(chalk.green(`  PDF ready:   ${pdfPath}`));
-    } catch (error) {
-      const result = { status: 'error', reason: `resume_preparation_failed:${error.message}` };
-      logApplication(job, ev, result, resumeSelection);
-      console.log(chalk.red(`  Resume preparation failed: ${error.message}`));
+      logApplication(job, ev, { status: 'manually_skipped' });
       skipped++;
       continue;
     }
 
     // apply
     console.log(chalk.dim('  Launching browser...\n'));
-    const result = await applyToJob(job, resumePath);
+    const result = await applyToJob(job, resumeChoice);
 
-    logApplication(job, ev, result, resumeSelection);
+    logApplication(job, ev, result, preparedSelection);
 
     if (result.status === 'applied') {
       console.log(chalk.greenBright(`  Application confirmed for ${job.title} at ${job.company}`));

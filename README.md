@@ -8,7 +8,7 @@ JAVE started as a simple bulk email tool for job applications. It has since evol
 
 **Part 1 — Scout** finds and displays recent, locally profile-matched job listings from LinkedIn and optional JSearch in your terminal. Choose countries, browse listings, read full descriptions, and select jobs you want to apply to.
 
-**Part 2 — Agent** takes Scout's output further. It evaluates each job against your profile, waits for your approval, tailors your resume, fills supported LinkedIn Easy Apply forms, and stops for a complete review. The application is submitted only after you explicitly type `SUBMIT`.
+**Part 2 — Agent** takes Scout's output further. It evaluates each job against your profile, offers optional resume tailoring, fills supported LinkedIn Easy Apply forms, and pauses for you to select or upload and confirm a resume. It then stops for a complete application review. The application is submitted only after you explicitly type `SUBMIT`.
 
 ---
 
@@ -41,8 +41,8 @@ jave/
 
 - Node.js 22.3 or higher
 - Chromium installed (`/usr/bin/chromium` on Arch Linux)
-- LibreOffice (required to convert DOCX resumes to PDF before upload)
-- A Gemini API key is required for resume tailoring. Browsing and job evaluation still work without it using local requirement extraction.
+- LibreOffice (required only when generating a tailored DOCX/PDF, not when selecting or uploading a resume yourself in LinkedIn)
+- A Gemini API key is required for optional resume tailoring. Browsing, job evaluation, and applying with an existing resume still work without it; evaluation uses local requirement extraction when Gemini is unavailable.
 - A RapidAPI key with JSearch subscribed is optional.
 
 Install Node dependencies:
@@ -95,7 +95,7 @@ Fill in the headline, years of experience, education, skills, languages, and tar
 
 ### 3. Configure base resumes
 
-Resume sources are configured in `resumes.json`. Each profile points to a trusted local DOCX. Base DOCX files should contain approved career facts under recognized section headings, including `EXPERIENCE` or `PROJECTS` with descriptive paragraphs or bullets. A skills list alone is not enough for substantive tailoring.
+Optional tailoring sources are configured in `resumes.json`. Each profile points to a trusted local DOCX. Base DOCX files should contain approved career facts under recognized section headings, including `EXPERIENCE` or `PROJECTS` with descriptive paragraphs or bullets. A skills list alone is not enough for substantive tailoring. Missing or invalid base-resume configuration disables the Agent's tailoring controls but does not prevent starting an application and choosing a resume in LinkedIn.
 
 The local renderer ignores everything before the first recognized section. For a single source of truth, remove name, email, phone, location, and profile URLs from base resumes. The final header is always created locally from `private-profile.json`.
 
@@ -172,26 +172,33 @@ node apply.js "Software Engineer"
 node apply.js "Software Engineer" --countries MY,OM
 ```
 
-1. Select countries (unless supplied with `--countries`) and fetch recent, locally profile-matched LinkedIn/JSearch jobs; process up to 15
+1. Select countries (unless supplied with `--countries`) and fetch recent, locally profile-matched LinkedIn/JSearch jobs; process up to 20
 2. Ask Gemini to extract requirements from job-posting data only, or use local extraction when Gemini is unavailable
 3. Score the extracted requirements locally against `career-profile.json`; anything below 50% match is skipped automatically
-4. Select a base DOCX locally from configured role signals
-5. Display the match summary, resume recommendation, confidence, and reason
-6. Allow `[R]` to override the resume, then wait for you to approve preparation
-7. Send the full retrieved job description, professional profile, and identity-masked career sections to Gemini for a job-specific summary and experience/project rewrites
-8. Add the name and contact header from `private-profile.json` during local DOCX rendering
-9. Convert the locally rendered DOCX to PDF with LibreOffice
-10. Open Chromium and fill supported Easy Apply controls directly from the local private profile
-11. Ask for any answer that is absent from the private profile instead of guessing
-12. Display every collected answer and keep the browser form open for verification
-13. Submit only when you explicitly type `SUBMIT`; `EDIT` returns to review and `CANCEL` exits without submission
+4. Recommend an optional tailoring base DOCX from configured role signals; unavailable base files do not block applying
+5. Display the match summary, tailoring base recommendation, and separate application-resume choice
+6. Optionally press `[T]` to tailor that base and generate DOCX/PDF files locally, then return to the menu without starting an application; a tailoring failure also returns to the menu
+7. Use `[R]` to change the tailoring base; choosing a different base clears any prepared PDF selection for this job
+8. Press `[Y]` to open Chromium without requiring tailoring; by default you select a saved resume or upload a file yourself in LinkedIn. If `[T]` succeeded, the Agent uploads that prepared PDF first
+9. Fill supported Easy Apply controls from the local private profile, asking for missing answers instead of guessing
+10. Pause at the resume step: select or upload in the browser, then enter `[C]` to confirm or `[X]` to cancel the application
+11. Check the actual selected resume and visible upload status before continuing; missing selections, pending/rejected uploads, and conflicting selection controls cannot be confirmed
+12. Display the collected answers and actual confirmed resume filename for a complete review
+13. Submit only when you explicitly type `SUBMIT`; `EDIT` returns to review and `CANCEL` exits without submission. Resume confirmation alone never submits
 14. Record confirmed, unconfirmed, cancelled, skipped, incomplete, and failed outcomes in `applications.json`
+
+```text
+[Y] Start application   [T] Tailor resume (optional)   [R] Change tailoring base
+[V] View JD             [N] Skip                     [Q] Quit
+```
+
+A prepared resume applies only to the current job. You can override its upload by selecting a different saved resume or uploading your own before confirming. Later fills and review preserve that choice rather than uploading the prepared file over it. A changed selection requires confirmation again; if it changes while you answer `SUBMIT`, the Agent requires a renewed final review.
 
 Easy Apply detection waits for a visible application form with loaded controls. It supports native `<dialog>` elements, ARIA dialog/modal containers, and LinkedIn Easy Apply modal wrappers, using application labels/headings or LinkedIn classes to distinguish them from unrelated dialogs. Filling and Next/Review/Submit actions stay inside that form; hidden dialogs and background-page controls are ignored. Existing answers are preserved, and submission still requires typing `SUBMIT`.
 
 The Agent pauses for a freshly randomized **2–4 seconds** after opening the job page, before filling each form section (including contact details, role questions, and resume uploads), and before clicking Next/Continue/Review. These pauses slow automatic navigation; they do not replace form-readiness or upload-confirmation checks and cannot guarantee that LinkedIn will keep the session signed in. Manual corrections are rechecked without an extra pause, and submission still requires explicit `SUBMIT` confirmation.
 
-Resume steps also support roleless SDUI `dialog-content` containers identified by LinkedIn's Easy Apply screen attribute. JAVE intercepts the file chooser before clicking **Upload resume**, then waits for the newly uploaded filename's radio card to be selected. It does not retain a preselected base resume or trust an older saved file merely because its filename matches. Failed uploads or unconfirmed selections stop progression; native file inputs remain supported.
+Resume steps support native file inputs, saved resume radio controls, and roleless SDUI `dialog-content` containers identified by LinkedIn's Easy Apply screen attribute. In browser mode, JAVE does not upload a local file or silently accept the preselected resume: you confirm the actual selection with `[C]`. In local-file mode, it intercepts the file chooser before clicking **Upload resume**, waits for the new upload and its selection, then asks for your confirmation. An older saved file with the same name is not proof that a new local upload succeeded. Failed automatic uploads stop progression; browser selections with missing or unresolved upload state remain paused until corrected or cancelled. Submission is blocked if no resume has been confirmed.
 
 Before filling a blank phone field from the private profile, JAVE selects its configured phone country code instead of accepting the dropdown's implicit first option. Dial codes match exactly: a shared code such as `+1` prompts for a country rather than picking the first match. An unanswered choice stays unresolved and blocks progression when required. Existing phone/contact answers, including the account email selection, are preserved.
 
@@ -201,7 +208,7 @@ If the application form cannot be identified, JAVE stops rather than entering pr
 
 ## Resume Tailoring and PII Boundary
 
-Resume tailoring uses Gemini; extraction, identity masking, rendering, PDF conversion, and browser upload run locally. Selecting **Tailor resume** in Scout or approving preparation in Agent authorizes sending the career content described below. Both interfaces display this boundary before that choice.
+Resume tailoring uses Gemini; extraction, identity masking, rendering, PDF conversion, and browser upload run locally. Selecting **Tailor resume** in Scout or pressing `[T]` in Agent authorizes sending the career content described below. Pressing `[Y]` only starts the application and does not authorize or trigger resume tailoring. Both interfaces display this boundary before the tailoring choice.
 
 The selector compares the job title and description with local signals in `resumes.json`. JAVE reads the selected DOCX locally and discards its pre-section header. It sends the complete retrieved job description, allowlisted fields from `career-profile.json`, and structured career sections together to `gemini-3.1-flash-lite`. Known name/contact values from the private profile are masked if repeated in those sections; this is not a guarantee that career history is anonymous.
 
@@ -223,6 +230,7 @@ Every job the agent processes is recorded in `applications.json`, including:
 - Match score and reasoning
 - Skills matched and missing
 - Application status: applied, submitted but unconfirmed, cancelled before submission, incomplete, skipped, or error
+- Actual confirmed resume filename and mode (`browser` or `local`); tailoring-base metadata is included only when that local upload remains the confirmed selection
 
 ---
 
@@ -232,4 +240,4 @@ Every job the agent processes is recorded in `applications.json`, including:
 - Jobs that redirect to external company websites are skipped by design.
 - LinkedIn can expire or revoke a session, including when it detects automation; JAVE cannot guarantee continued authentication. Complete sign-in or verification in the Agent's open Chromium window and type `RETRY` to resume the same job.
 - JSearch is optional and requires a subscribed RapidAPI key. Each search makes one JSearch request per selected country when configured; selecting more countries consumes more quota.
-- Gemini rate limits can affect evaluation and tailoring. Evaluation falls back to local requirement extraction; tailoring fails explicitly without creating a fallback resume. Retry preparation after resolving the API/key/quota issue.
+- Gemini rate limits can affect evaluation and tailoring. Evaluation falls back to local requirement extraction; tailoring fails explicitly without creating a fallback resume. In Agent, you can retry `[T]` or press `[Y]` to apply with an existing resume instead.

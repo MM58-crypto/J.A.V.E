@@ -73,14 +73,26 @@ async function openFixture(t) {
   return { browser, page };
 }
 
-async function fillFixture(page, resumePath) {
+function isResumeConfirmation(question) {
+  return question.includes('[C]') && question.includes('[X]');
+}
+
+function confirmResume(question) {
+  if (isResumeConfirmation(question)) return 'C';
+  throw new Error(`Unexpected question: ${question}`);
+}
+
+async function fillFixture(page, resumePath, options = {}) {
   const answers = question => {
+    if (isResumeConfirmation(question)) return 'C';
     if (question.includes('Portfolio note')) return 'Portfolio available on request';
     if (question.includes('authorized to work')) return 'Yes';
     if (question.includes('certify')) return 'Yes';
     throw new Error(`Unexpected question: ${question}`);
   };
-  return fillFormStep(page, profile, resumePath, { ask: answers, delayMs: 0 });
+  options.ask ||= answers;
+  options.delayMs = 0;
+  return fillFormStep(page, profile, { mode: 'local', path: resumePath }, options);
 }
 
 test('profile aliases resolve specific fields before general aliases', () => {
@@ -117,8 +129,9 @@ test('declining a required checkbox blocks form progression', async t => {
   const resumePath = temporaryResume(t);
   const { page } = await openFixture(t);
 
-  const result = await fillFormStep(page, profile, resumePath, {
+  const result = await fillFormStep(page, profile, { mode: 'local', path: resumePath }, {
     ask: question => {
+      if (isResumeConfirmation(question)) return 'C';
       if (question.includes('Portfolio note')) return '';
       if (question.includes('authorized to work')) return 'Yes';
       if (question.includes('certify')) return 'No';
@@ -134,19 +147,14 @@ test('declining a required checkbox blocks form progression', async t => {
 test('invalid review input and cancellation never submit', async t => {
   const resumePath = temporaryResume(t);
   const { page } = await openFixture(t);
+  const options = {};
 
-  const result = await fillFixture(page, resumePath);
+  const result = await fillFixture(page, resumePath, options);
   const reviewed = new Map();
   mergeReviewFields(reviewed, result.fields);
   const responses = ['yes', 'cancel'];
-  const outcome = await submitReviewedApplication(
-    page,
-    job,
-    reviewed,
-    profile,
-    resumePath,
-    { ask: async () => responses.shift(), output: () => {} },
-  );
+  Object.assign(options, { ask: async question => isResumeConfirmation(question) ? 'C' : responses.shift(), output: () => {} });
+  const outcome = await submitReviewedApplication(page, job, reviewed, profile, { mode: 'local', path: resumePath }, options);
 
   assert.equal(outcome.status, 'cancelled');
   assert.equal(outcome.reviewed, true);
@@ -156,19 +164,14 @@ test('invalid review input and cancellation never submit', async t => {
 test('exact SUBMIT confirmation clicks once and observes success', async t => {
   const resumePath = temporaryResume(t);
   const { page } = await openFixture(t);
+  const options = {};
 
-  const result = await fillFixture(page, resumePath);
+  const result = await fillFixture(page, resumePath, options);
   const reviewed = new Map();
   mergeReviewFields(reviewed, result.fields);
   const responses = ['not yet', 'SUBMIT'];
-  const outcome = await submitReviewedApplication(
-    page,
-    job,
-    reviewed,
-    profile,
-    resumePath,
-    { ask: async () => responses.shift(), output: () => {} },
-  );
+  Object.assign(options, { ask: async question => isResumeConfirmation(question) ? 'C' : responses.shift(), output: () => {} });
+  const outcome = await submitReviewedApplication(page, job, reviewed, profile, { mode: 'local', path: resumePath }, options);
 
   assert.equal(outcome.status, 'applied');
   assert.equal(outcome.reviewed, true);
@@ -178,38 +181,34 @@ test('exact SUBMIT confirmation clicks once and observes success', async t => {
 test('EDIT review reacquires a rerendered submit button', async t => {
   const resumePath = temporaryResume(t);
   const { page } = await openFixture(t);
+  const options = {};
 
-  const result = await fillFixture(page, resumePath);
+  const result = await fillFixture(page, resumePath, options);
   const reviewed = new Map();
   mergeReviewFields(reviewed, result.fields);
   const decisions = ['EDIT', 'SUBMIT'];
-  const outcome = await submitReviewedApplication(
-    page,
-    job,
-    reviewed,
-    profile,
-    resumePath,
-    {
-      ask: async question => {
-        if (question.startsWith('Edit the browser form')) {
-          await page.evaluate(() => {
-            const current = document.getElementById('submit');
-            const replacement = current.cloneNode(true);
-            replacement.addEventListener('click', () => {
-              window.submitClicks += 1;
-              const confirmation = document.createElement('p');
-              confirmation.textContent = 'Application was sent';
-              document.body.appendChild(confirmation);
-            });
-            current.replaceWith(replacement);
+  Object.assign(options, {
+    ask: async question => {
+      if (isResumeConfirmation(question)) return 'C';
+      if (question.startsWith('Edit the browser form')) {
+        await page.evaluate(() => {
+          const current = document.getElementById('submit');
+          const replacement = current.cloneNode(true);
+          replacement.addEventListener('click', () => {
+            window.submitClicks += 1;
+            const confirmation = document.createElement('p');
+            confirmation.textContent = 'Application was sent';
+            document.body.appendChild(confirmation);
           });
-          return '';
-        }
-        return decisions.shift();
-      },
-      output: () => {},
+          current.replaceWith(replacement);
+        });
+        return '';
+      }
+      return decisions.shift();
     },
-  );
+    output: () => {},
+  });
+  const outcome = await submitReviewedApplication(page, job, reviewed, profile, { mode: 'local', path: resumePath }, options);
 
   assert.equal(outcome.status, 'applied');
   assert.equal(await page.evaluate(() => window.submitClicks), 1);
@@ -295,10 +294,11 @@ async function verifyContactFixture(t, fixture) {
   t.mock.method(puppeteer, 'launch', async () => browser);
   t.mock.method(browser, 'newPage', async () => page);
   let reviewState;
-  const outcome = await applyToJob({ ...job, link: inputLink }, resumePath, {
+  const outcome = await applyToJob({ ...job, link: inputLink }, { mode: 'local', path: resumePath }, {
     profile: fixture.profile,
     delayMs: 0,
     ask: async question => {
+      if (isResumeConfirmation(question)) return 'C';
       if (question.includes('RETRY')) {
         loginPrompts++;
         assert.equal(await page.$('input'), null, 'No private answers entered before sign-in');
@@ -386,11 +386,11 @@ test('existing SDUI contact answers and manual phone edits survive another fill'
   const page = await openSDUIFixture(t);
   const resumePath = temporaryResume(t);
   const options = { delayMs: 0, ask: question => { throw new Error(`Unexpected question: ${question}`); } };
-  await fillFormStep(page, sduiProfile, resumePath, options);
+  await fillFormStep(page, sduiProfile, { mode: 'local', path: resumePath }, options);
   await page.select('[id="«ra»"]', 'ae');
   await page.$eval('[id="«rc»"]', element => { element.value = '+971500000000'; });
 
-  await fillFormStep(page, sduiProfile, resumePath, options);
+  await fillFormStep(page, sduiProfile, { mode: 'local', path: resumePath }, options);
   assert.equal(await page.$eval('[id="«r8»"]', element => element.value), 'account@example.invalid');
   assert.equal(await page.$eval('[id="«ra»"]', element => element.value), 'ae');
   assert.equal(await page.$eval('[id="«rc»"]', element => element.value), '+971500000000');
@@ -400,7 +400,7 @@ test('shared dial codes require a choice instead of selecting a default or prefi
   const page = await openSDUIFixture(t);
   const resumePath = temporaryResume(t);
   let prompts = 0;
-  const first = await fillFormStep(page, profile, resumePath, {
+  const first = await fillFormStep(page, profile, { mode: 'local', path: resumePath }, {
     delayMs: 0,
     ask: () => { prompts++; return ''; },
   });
@@ -408,7 +408,7 @@ test('shared dial codes require a choice instead of selecting a default or prefi
   assert.deepEqual(first.unresolvedRequired.map(field => field.label), ['Phone country code*']);
   assert.equal(await page.$eval('[id="«ra»"]', element => element.value), '');
 
-  const second = await fillFormStep(page, profile, resumePath, {
+  const second = await fillFormStep(page, profile, { mode: 'local', path: resumePath }, {
     delayMs: 0,
     ask: () => { prompts++; return 'United States (+1)'; },
   });
@@ -437,23 +437,20 @@ for (const [name, opening, closing] of [
       </section>
       ${opening}
         <label for="application-email">Email address</label><input id="application-email" required>
+        <label for="resume">Resume</label><input id="resume" type="file" accept=".pdf">
         <button onclick="window.applicationClicks++; document.getElementById('confirmation').textContent = 'Application was sent'">Submit application</button>
       ${closing}
       <p id="confirmation"></p>
       <script>window.backgroundClicks = 0; window.applicationClicks = 0;</script>
     `);
-    const result = await fillFormStep(page, profile, resumePath, {
-      delayMs: 0,
-      ask: question => { throw new Error(`Unexpected question: ${question}`); },
-    });
+    const options = { delayMs: 0, ask: confirmResume, output: () => {} };
+    const result = await fillFormStep(page, profile, { mode: 'local', path: resumePath }, options);
     assert.equal(await page.$eval('#application-email', element => element.value), profile.personal.email);
     assert.deepEqual(await page.$$eval('#background, #stale, #unrelated', elements => elements.map(element => element.value)), ['', '', '']);
     const reviewed = new Map();
     mergeReviewFields(reviewed, result.fields);
-    const outcome = await submitReviewedApplication(page, job, reviewed, profile, resumePath, {
-      ask: async () => 'SUBMIT',
-      output: () => {},
-    });
+    options.ask = async question => isResumeConfirmation(question) ? 'C' : 'SUBMIT';
+    const outcome = await submitReviewedApplication(page, job, reviewed, profile, { mode: 'local', path: resumePath }, options);
     assert.equal(outcome.status, 'applied');
     assert.deepEqual(await page.evaluate(() => [window.backgroundClicks, window.applicationClicks]), [0, 1]);
   });
@@ -474,11 +471,11 @@ for (const [name, opening, closing] of [
       <p id="confirmation"></p>
       <script>window.submitClicks = 0;</script>
     `);
-    await assert.rejects(fillFormStep(page, profile, resumePath, {
+    await assert.rejects(fillFormStep(page, profile, { mode: 'local', path: resumePath }, {
       delayMs: 0,
       ask: question => { throw new Error(`Unexpected question: ${question}`); },
     }));
-    const outcome = await submitReviewedApplication(page, job, new Map(), profile, resumePath, {
+    const outcome = await submitReviewedApplication(page, job, new Map(), profile, { mode: 'local', path: resumePath }, {
       ask: async () => 'SUBMIT',
       output: () => {},
     });
@@ -495,16 +492,12 @@ async function openResumeFixture(t) {
   return { browser, page };
 }
 
-const resumeFillOptions = {
-  delayMs: 0,
-  ask: question => { throw new Error(`Unexpected question: ${question}`); },
-};
-
 test('chooser-only SDUI upload selects the new resume after delayed rendering and selection', async t => {
   const resumePath = temporaryResume(t);
   const { page } = await openResumeFixture(t);
+  const resumeFillOptions = { delayMs: 0, ask: confirmResume };
   assert.equal(await page.$('#application input[type="file"]'), null);
-  const result = await fillFormStep(page, profile, resumePath, resumeFillOptions);
+  const result = await fillFormStep(page, profile, { mode: 'local', path: resumePath }, resumeFillOptions);
   assert.deepEqual(result.unresolvedRequired, []);
   assert.deepEqual(result.fields.map(field => [field.type, field.value]), [['file', path.basename(resumePath)]]);
   assert.equal(await page.$eval('#uploaded-resume', card => card.getAttribute('aria-checked')), 'true');
@@ -514,25 +507,26 @@ test('chooser-only SDUI upload selects the new resume after delayed rendering an
   assert.deepEqual(await page.$$eval('#background-file, #stale-file', inputs => inputs.map(input => input.files.length)), [0, 0]);
   assert.equal(await page.evaluate(() => window.backgroundClicks), 0);
 
-  await fillFormStep(page, profile, resumePath, resumeFillOptions);
+  await fillFormStep(page, profile, { mode: 'local', path: resumePath }, resumeFillOptions);
   assert.deepEqual(await page.evaluate(() => window.uploadEvents), ['chooser', 'synthetic-resume.pdf', 'select', 'selected']);
 });
 
 test('a regenerated artifact at the same path is uploaded again, not mistaken for the saved basename', async t => {
   const resumePath = temporaryResume(t);
   const { page } = await openResumeFixture(t);
+  const resumeFillOptions = { delayMs: 0, ask: confirmResume };
   await page.evaluate(() => window.selectResume(document.getElementById('saved-same-name')));
-  await fillFormStep(page, profile, resumePath, resumeFillOptions);
+  await fillFormStep(page, profile, { mode: 'local', path: resumePath }, resumeFillOptions);
   fs.appendFileSync(resumePath, '\n% regenerated artifact\n');
-  await fillFormStep(page, profile, resumePath, resumeFillOptions);
+  await fillFormStep(page, profile, { mode: 'local', path: resumePath }, resumeFillOptions);
   assert.deepEqual(await page.evaluate(() => window.uploadEvents), [
     'chooser', 'synthetic-resume.pdf', 'select', 'selected',
     'chooser', 'synthetic-resume.pdf', 'select', 'selected',
   ]);
 });
 
-async function runResumeApplication(t, mode) {
-  const resumePath = temporaryResume(t);
+async function runResumeApplication(t, mode, settings = {}) {
+  const resumeChoice = settings.resumeChoice || { mode: 'local', path: temporaryResume(t) };
   const { browser, page } = await openFixture(t);
   const html = fs.readFileSync(path.join(__dirname, 'fixtures/easy-apply-resume-sdui.html'), 'utf8');
   page.removeAllListeners('request');
@@ -563,17 +557,25 @@ async function runResumeApplication(t, mode) {
   });
   const reviewAnswers = ['yes', 'CANCEL'];
   let reviews = 0;
-  const outcome = await applyToJob({ ...job, link: 'https://www.linkedin.com/jobs/view/4242424242/' }, resumePath, {
+  let confirmations = 0;
+  const outcome = await applyToJob({ ...job, link: 'https://www.linkedin.com/jobs/view/4242424242/' }, resumeChoice, {
     profile,
     delayMs: 0,
     ask: question => {
+      if (isResumeConfirmation(question)) {
+        confirmations++;
+        if (settings.confirm) return settings.confirm(page, confirmations);
+        return 'C';
+      }
       if (!question.includes('Type SUBMIT')) throw new Error(`Unexpected question: ${question}`);
       reviews++;
+      if (settings.review) return settings.review(page, reviews);
+      assert.ok(reviewAnswers.length, 'Unexpected extra final review');
       return reviewAnswers.shift();
     },
     output: () => {},
   });
-  return { outcome, state, reviews };
+  return { outcome, state, reviews, confirmations };
 }
 
 test('chooser-only application advances only after selection and still requires SUBMIT at review', async t => {
@@ -599,21 +601,251 @@ for (const mode of ['reject', 'selection-rejected']) {
   });
 }
 
-test('direct file input upload is reused only while verified and rejects a cleared file', async t => {
+test('direct file uploads are reused and clearing a confirmed file blocks progression without re-uploading', async t => {
   const resumePath = temporaryResume(t);
   const { page } = await openFixture(t);
+  const options = {};
   await page.$eval('#resume', input => {
     input.hidden = true;
     window.uploadChanges = 0;
     input.addEventListener('change', () => { window.uploadChanges++; });
   });
-  await fillFixture(page, resumePath);
-  await fillFixture(page, resumePath);
+  await fillFixture(page, resumePath, options);
+  await fillFixture(page, resumePath, options);
   assert.equal(await page.evaluate(() => window.uploadChanges), 1);
   await page.$eval('#resume', input => {
     input.value = '';
-    input.addEventListener('change', () => { input.value = ''; });
   });
-  await assert.rejects(fillFixture(page, resumePath), /Resume upload or selection could not be confirmed/);
+  let confirmations = 0;
+  options.ask = question => {
+    assert.ok(isResumeConfirmation(question));
+    assert.ok(++confirmations <= 2);
+    return confirmations === 1 ? 'C' : 'X';
+  };
+  const result = await fillFormStep(page, profile, { mode: 'local', path: resumePath }, options);
+  assert.equal(result.cancelled, true);
+  assert.equal(confirmations, 2);
+  assert.equal(await page.evaluate(() => window.uploadChanges), 1);
+  assert.equal(await page.evaluate(() => window.submitClicks), 0);
+});
+
+test('browser mode confirms a saved resume without a local PDF or an upload', async t => {
+  const { outcome, state, confirmations } = await runResumeApplication(t, 'delayed', {
+    resumeChoice: { mode: 'browser' },
+    confirm: async (page, count) => {
+      assert.equal(count, 1);
+      assert.deepEqual(await page.evaluate(() => [window.nextClicks, window.submitClicks, window.uploadEvents]), [0, 0, []]);
+      return 'C';
+    },
+    review: async page => {
+      assert.equal(await page.evaluate(() => window.submitClicks), 0);
+      return 'SUBMIT';
+    },
+  });
+  assert.equal(outcome.status, 'applied');
+  assert.deepEqual(outcome.resume, { mode: 'browser', filename: 'base-resume.pdf' });
+  assert.equal(confirmations, 1);
+  assert.deepEqual([state.next, state.submit, state.uploads], [1, 1, []]);
+});
+
+test('blank, invalid, and SUBMIT answers cannot replace resume confirmation', async t => {
+  const answers = ['', 'yes', 'SUBMIT', 'C'];
+  const { outcome, state, confirmations, reviews } = await runResumeApplication(t, 'delayed', {
+    resumeChoice: { mode: 'browser' },
+    confirm: async (page, count) => {
+      assert.ok(count <= answers.length, 'Unexpected extra resume confirmation');
+      assert.deepEqual(await page.evaluate(() => [window.nextClicks, window.submitClicks]), [0, 0]);
+      return answers[count - 1];
+    },
+    review: () => 'CANCEL',
+  });
+  assert.equal(outcome.status, 'cancelled');
+  assert.equal(confirmations, 4);
+  assert.equal(reviews, 1);
+  assert.deepEqual([state.next, state.submit], [1, 0]);
+});
+
+for (const invalid of ['missing selection', 'pending upload', 'rejected upload', 'conflicting radio state']) {
+  test(`${invalid} cannot advance after C and X cancels the resume checkpoint`, async t => {
+    const { outcome, state, confirmations, reviews } = await runResumeApplication(t, 'delayed', {
+      resumeChoice: { mode: 'browser' },
+      confirm: async (page, count) => {
+        assert.ok(count <= 2, 'Invalid selection must re-prompt only until cancellation');
+        assert.deepEqual(await page.evaluate(() => [window.nextClicks, window.submitClicks]), [0, 0]);
+        if (count === 2) return 'X';
+        await page.evaluate(invalid => {
+          if (invalid === 'missing selection') window.selectResume(null);
+          if (invalid === 'pending upload') document.getElementById('upload-status').textContent = 'Uploading manual-resume.pdf...';
+          if (invalid === 'rejected upload') document.getElementById('upload-status').textContent = 'Upload rejected: manual-resume.pdf';
+          if (invalid === 'conflicting radio state') {
+            document.querySelector('#saved-base input').checked = false;
+            document.querySelector('#saved-same-name input').checked = true;
+          }
+        }, invalid);
+        return 'C';
+      },
+    });
+    assert.equal(outcome.status, 'cancelled');
+    assert.equal(confirmations, 2);
+    assert.equal(reviews, 0);
+    assert.deepEqual([state.next, state.submit, state.uploads], [0, 0, []]);
+  });
+}
+
+test('X returns cancellation from fill without confirming or advancing a selected resume', async t => {
+  const { page } = await openResumeFixture(t);
+  const result = await fillFormStep(page, profile, { mode: 'browser' }, {
+    delayMs: 0,
+    ask: question => {
+      assert.ok(isResumeConfirmation(question));
+      return 'X';
+    },
+  });
+  assert.equal(result.cancelled, true);
+  assert.equal(result.fields.some(field => field.type === 'file'), false);
+  assert.deepEqual(await page.evaluate(() => [window.nextClicks, window.submitClicks, window.uploadEvents]), [0, 0, []]);
+});
+
+test('browser mode confirms a manually uploaded and selected PDF', async t => {
+  const resumePath = temporaryResume(t);
+  const { outcome, state } = await runResumeApplication(t, 'delayed', {
+    resumeChoice: { mode: 'browser' },
+    confirm: async (page, count) => {
+      assert.equal(count, 1);
+      assert.deepEqual(await page.evaluate(() => window.uploadEvents), []);
+      const [chooser] = await Promise.all([page.waitForFileChooser(), page.click('#upload')]);
+      await chooser.accept([resumePath]);
+      await page.waitForSelector('#uploaded-resume');
+      await page.click('#uploaded-resume');
+      await page.waitForFunction(() => document.getElementById('uploaded-resume').getAttribute('aria-checked') === 'true');
+      return 'C';
+    },
+    review: () => 'CANCEL',
+  });
+  assert.equal(outcome.status, 'cancelled');
+  assert.deepEqual(outcome.resume, { mode: 'browser', filename: 'synthetic-resume.pdf' });
+  assert.deepEqual(state.uploads, ['chooser', 'synthetic-resume.pdf', 'select', 'selected']);
+  assert.deepEqual([state.next, state.submit], [1, 0]);
+});
+
+test('rerendering resume controls during confirmation uses the replacement selection', async t => {
+  const { outcome, state } = await runResumeApplication(t, 'delayed', {
+    resumeChoice: { mode: 'browser' },
+    confirm: async (page, count) => {
+      assert.equal(count, 1);
+      await page.evaluate(() => {
+        const current = document.querySelector('#application fieldset');
+        const replacement = current.cloneNode(true);
+        current.replaceWith(replacement);
+        for (const card of replacement.querySelectorAll('[role="radio"]')) {
+          card.onclick = () => window.selectResume(card);
+        }
+      });
+      await page.click('#saved-same-name');
+      return 'C';
+    },
+    review: () => 'CANCEL',
+  });
+  assert.equal(outcome.status, 'cancelled');
+  assert.deepEqual(outcome.resume, { mode: 'browser', filename: 'synthetic-resume.pdf' });
+  assert.deepEqual([state.next, state.submit, state.uploads], [1, 0, []]);
+});
+
+test('local upload overridden during confirmation survives repeated fill and final review', async t => {
+  const resumeChoice = { mode: 'local', path: temporaryResume(t) };
+  const { page } = await openResumeFixture(t);
+  let confirmations = 0;
+  const options = {
+    delayMs: 0,
+    output: () => {},
+    ask: async question => {
+      assert.ok(isResumeConfirmation(question));
+      confirmations++;
+      assert.equal(confirmations, 1);
+      assert.equal(await page.$eval('#uploaded-resume', card => card.getAttribute('aria-checked')), 'true');
+      await page.click('#saved-base');
+      return 'C';
+    },
+  };
+  const first = await fillFormStep(page, profile, resumeChoice, options);
+  const second = await fillFormStep(page, profile, resumeChoice, options);
+  const reviewed = new Map();
+  mergeReviewFields(reviewed, first.fields);
+  mergeReviewFields(reviewed, second.fields);
+  assert.equal(reviewed.get('file:resume').value, 'base-resume.pdf');
+  assert.equal(reviewed.get('file:resume').source, 'user');
+  await page.click('#next');
+  options.ask = async question => {
+    assert.equal(isResumeConfirmation(question), false, 'Unchanged confirmed override should remain confirmed');
+    assert.equal(await page.$eval('#saved-base input', input => input.checked), true);
+    return 'SUBMIT';
+  };
+  const outcome = await submitReviewedApplication(page, job, reviewed, profile, resumeChoice, options);
+  assert.equal(outcome.status, 'applied');
+  assert.deepEqual(outcome.resume, { mode: 'browser', filename: 'base-resume.pdf' });
+  assert.deepEqual(await page.evaluate(() => window.uploadEvents), ['chooser', 'synthetic-resume.pdf', 'select', 'selected']);
+  assert.equal(await page.evaluate(() => window.submitClicks), 1);
+});
+
+test('a selection changed while answering SUBMIT needs confirmation and a renewed review', async t => {
+  const { outcome, state, confirmations, reviews } = await runResumeApplication(t, 'delayed', {
+    resumeChoice: { mode: 'browser' },
+    confirm: async (page, count) => {
+      assert.ok(count <= 2, 'Only the initial and changed selection need confirmation');
+      assert.equal(await page.evaluate(() => window.submitClicks), 0);
+      if (count === 2) assert.equal(await page.$eval('#saved-same-name input', input => input.checked), true);
+      return 'C';
+    },
+    review: async (page, count) => {
+      assert.ok(count <= 2, 'The changed selection needs one renewed final review');
+      assert.equal(await page.evaluate(() => window.submitClicks), 0);
+      if (count === 1) {
+        await page.click('#saved-same-name');
+        return 'SUBMIT';
+      }
+      return 'CANCEL';
+    },
+  });
+  assert.equal(outcome.status, 'cancelled');
+  assert.deepEqual(outcome.resume, { mode: 'browser', filename: 'synthetic-resume.pdf' });
+  assert.equal(confirmations, 2);
+  assert.equal(reviews, 2);
+  assert.deepEqual([state.next, state.submit, state.uploads], [1, 0, []]);
+});
+
+test('changing a previously confirmed local selection never uploads over the user choice', async t => {
+  const resumeChoice = { mode: 'local', path: temporaryResume(t) };
+  const { page } = await openResumeFixture(t);
+  const options = { delayMs: 0, ask: confirmResume };
+  await fillFormStep(page, profile, resumeChoice, options);
+  await page.click('#saved-base');
+  let confirmations = 0;
+  options.ask = async question => {
+    assert.ok(isResumeConfirmation(question));
+    confirmations++;
+    assert.equal(await page.$eval('#saved-base input', input => input.checked), true);
+    return 'C';
+  };
+  const changed = await fillFormStep(page, profile, resumeChoice, options);
+  await fillFormStep(page, profile, resumeChoice, options);
+  assert.equal(confirmations, 1);
+  assert.equal(changed.fields.find(field => field.type === 'file').value, 'base-resume.pdf');
+  assert.deepEqual(await page.evaluate(() => window.uploadEvents), ['chooser', 'synthetic-resume.pdf', 'select', 'selected']);
+});
+
+test('a final application without any detected resume cannot submit', async t => {
+  const { page } = await openFixture(t);
+  await page.setContent(`
+    <section role="dialog" aria-label="Easy Apply">
+      <button onclick="window.submitClicks++">Submit application</button>
+    </section>
+    <script>window.submitClicks = 0;</script>
+  `);
+  const outcome = await submitReviewedApplication(page, job, new Map(), profile, { mode: 'browser' }, {
+    delayMs: 0,
+    ask: () => 'SUBMIT',
+    output: () => {},
+  });
+  assert.equal(outcome.status, 'incomplete');
   assert.equal(await page.evaluate(() => window.submitClicks), 0);
 });
